@@ -516,13 +516,13 @@ function makeEntityViz(meta) {
       map: softGlowTexture(),
       color: baseColor,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.42,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
     aura = new THREE.Mesh(GEO.auraDisc, auraMat);
     aura.rotation.x = -Math.PI / 2;
-    const auraScale = (size / 0.4) * 2.7;
+    const auraScale = (size / 0.4) * 2.3;
     aura.scale.set(auraScale, auraScale, 1);
     aura.position.y = 0.03;
     group.add(aura);

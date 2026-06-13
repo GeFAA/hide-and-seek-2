@@ -11,7 +11,7 @@ abstract: >-
   dynamic lighting, destructible walls and doors, and stamina, to provoke richer
   emergent tool use, deception, and teamwork. This is a research scaffold.
 type: software
-version: "1.5.0"
+version: "1.5.1"
 date-released: "2026-06-13"
 license: MIT
 keywords:

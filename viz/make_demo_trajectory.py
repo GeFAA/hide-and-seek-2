@@ -119,6 +119,16 @@ def lerp(a: float, b: float, t: float) -> float:
     return a + (b - a) * t
 
 
+def carried_box_pos(holder: Dict) -> Tuple[float, float]:
+    """Place a carried box just IN FRONT of its holder (along the holder's
+    heading) so the agent is visibly PUSHING it, not standing inside it. The
+    offset is ~ agent radius + light-box half-extent."""
+    off = SIZE["hider"] + SIZE["box_light"] + 0.18
+    cx = holder["x"] + off * math.cos(holder["h"])
+    cy = holder["y"] + off * math.sin(holder["h"])
+    return clamp_arena(cx, cy, margin=0.5)
+
+
 # --------------------------------------------------------------------------- #
 # Per-agent scripted, eased waypoint plan. REUSED by every scenario.
 # --------------------------------------------------------------------------- #
@@ -534,10 +544,10 @@ def scenario_showcase() -> Scenario:
     pa.add(42, 56, BARRICADE[BOX_L2], carry=BOX_L2)
     pb.add(6, 24, BOX_START[BOX_L3])
     pb.add(24, 40, BARRICADE[BOX_L3], carry=BOX_L3)
-    pa.add(56, 66, (HEAVY_START[0] - 1.0, HEAVY_START[1]))
-    pb.add(40, 54, (HEAVY_START[0] + 1.0, HEAVY_START[1]))
-    pa.add(66, 88, (HEAVY_END[0] - 1.0, HEAVY_END[1]))
-    pb.add(66, 88, (HEAVY_END[0] + 1.0, HEAVY_END[1]))
+    pa.add(56, 66, (HEAVY_START[0] - 1.5, HEAVY_START[1]))
+    pb.add(40, 54, (HEAVY_START[0] + 1.5, HEAVY_START[1]))
+    pa.add(66, 88, (HEAVY_END[0] - 1.5, HEAVY_END[1]))
+    pb.add(66, 88, (HEAVY_END[0] + 1.5, HEAVY_END[1]))
     pa.add(88, prep, (-2.6, 2.2))
     pb.add(88, prep, (-1.2, 1.8))
     pa.add(prep, prep + 44, (-3.2, -0.6), sprint=True)
@@ -579,7 +589,7 @@ def scenario_showcase() -> Scenario:
         for bid in (BOX_L1, BOX_L2, BOX_L3):
             holder = carried_by.get(bid, -1)
             if holder >= 0:
-                box_pos[bid] = (ast[holder]["x"], ast[holder]["y"])
+                box_pos[bid] = carried_box_pos(ast[holder])
             bx, by = box_pos[bid]
             out[bid] = PropState(bx, by, hd=1 if holder >= 0 else 0, hb=holder)
         if 66 <= t < 88:
@@ -713,7 +723,7 @@ def scenario_fort() -> Scenario:
         for bid in (BOX_L1, BOX_L2, BOX_L3):
             holder = carried_by.get(bid, -1)
             if holder >= 0 and not locked:
-                box_pos[bid] = (ast[holder]["x"], ast[holder]["y"])
+                box_pos[bid] = carried_box_pos(ast[holder])
             elif locked:
                 box_pos[bid] = BARRICADE[bid]
             bx, by = box_pos[bid]
@@ -833,7 +843,7 @@ def scenario_ramp() -> Scenario:
         for bid in (BOX_L1, BOX_L2, BOX_L3):
             holder = carried_by.get(bid, -1)
             if holder >= 0:
-                box_pos[bid] = (ast[holder]["x"], ast[holder]["y"])
+                box_pos[bid] = carried_box_pos(ast[holder])
             bx, by = box_pos[bid]
             out[bid] = PropState(bx, by, hd=1 if holder >= 0 else 0, hb=holder)
         if 58 <= t < 80:

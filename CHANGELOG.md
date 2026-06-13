@@ -5,6 +5,17 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] -- 2026-06-13
+
+### Fixed
+
+- **Box-carry visuals.** Hiders now visibly *push* a carried box ahead of them
+  instead of rendering inside it (the box was previously pinned to the carrier's
+  exact position, so the agent disappeared into the crate while hauling). The
+  cooperative heavy-box flank was widened so both pushers sit clearly beside the
+  box, and the agent ground-glow was softened so it no longer washes out
+  capsules behind it.
+
 ## [1.5.0] -- 2026-06-13
 
 ### Added
