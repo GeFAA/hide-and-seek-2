@@ -1,7 +1,15 @@
 # Hide & Seek 2.0
 
+[![CI](https://github.com/GeFAA/hide-and-seek-2/actions/workflows/ci.yml/badge.svg)](https://github.com/GeFAA/hide-and-seek-2/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/GeFAA/hide-and-seek-2)](https://github.com/GeFAA/hide-and-seek-2/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![▶ Live demo](https://img.shields.io/badge/%E2%96%B6%20Live%20demo-online-brightgreen)](https://gefaa.github.io/hide-and-seek-2/)
+
 > A modern **JAX / Flax** recreation **and expansion** of OpenAI's 2019
 > *Emergent Tool Use From Multi-Agent Autocurricula* ("Hide-and-Seek").
+>
+> **▶ Try the live 3D demo in your browser (no install):**
+> <https://gefaa.github.io/hide-and-seek-2/>
 
 ![Hide & Seek 2.0 — clean browser-based 3D replay viewer](docs/preview.png)
 
@@ -44,6 +52,8 @@ are **design targets, not measured benchmarks**.
 
 ## Watch it — 3D viewer
 
+**Try it live in your browser (no install): <https://gefaa.github.io/hide-and-seek-2/>**
+
 Hide & Seek 2.0 ships with a **clean, browser-based 3D replay viewer**
 (Three.js, in the bright OpenAI *Emergent Tool Use* visual style) that plays back
 an episode as an interactive god-view scene — agents,
@@ -70,6 +80,24 @@ python -m viz.serve
 Or via the Makefile: `make demo` then `make viz`. To record a **real** rollout
 after a JAX run, use `viz/recorder.py`. Full guide, controls and the palette
 legend: **[`viz/README.md`](viz/README.md)**.
+
+### Scenarios
+
+The viewer ships with several **named scenarios**, each a short curated episode
+that isolates one emergent behaviour. Switch between them with the **in-viewer
+scenario picker** (or load any trajectory file manually):
+
+| Scenario | What it shows |
+| --- | --- |
+| **Synthetic Showcase** | The default demo episode — a tidy tour of all 2.0 mechanics at once. |
+| **Fort Building** | Hiders fetch and stack boxes into a barricade during the prep phase. |
+| **Ramp Use** | A seeker uses a ramp to climb and break the hiders' line of defence. |
+| **Running & Chasing** | The open-field pursuit: seekers released, hiders fleeing across the arena. |
+| **Door Blocking** | Hiders hold a chokepoint by blocking a doorway. |
+| **Sensory Deception** | A decoy spoofs another entity's signature to mislead the seekers. |
+
+The live demo opens on the **Synthetic Showcase**; pick another scenario from
+the in-viewer picker to compare behaviours.
 
 ---
 
@@ -102,9 +130,15 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for a deeper dive and
 
 ```
 hide-and-seek-2/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml             # CI: byte-compile + JAX-free config tests
+│       └── pages.yml          # deploy viz/web to GitHub Pages
 ├── config.py                 # single source of truth for ALL dims & hyperparams
 ├── train.py                  # CLI entrypoint: build config -> make_train -> run
 ├── README.md
+├── CHANGELOG.md               # Keep a Changelog, newest first
+├── CONTRIBUTING.md            # dev setup, tests, viewer, adding scenarios
 ├── requirements.txt
 ├── pyproject.toml
 ├── Makefile
@@ -149,7 +183,11 @@ hide-and-seek-2/
 │   ├── recorder.py            # export REAL JAX rollouts to the format (numpy)
 │   ├── serve.py               # `python -m viz.serve` -> serves viz/web
 │   └── web/                   # Three.js viewer, clean/light (no build step)
-│       └── trajectories/      # trajectory JSON files (demo committed)
+│       ├── trajectories/      # committed scenario JSONs + manifest.json
+│       │   ├── manifest.json  # scenario list for the in-viewer picker
+│       │   ├── demo_trajectory.json
+│       │   └── *.json         # named scenarios (fort, ramp, chase, door, decoy)
+│       └── recordings/        # local-only real rollouts (gitignored)
 └── tests/                     # pytest sanity tests (shapes, jit, vmap, elo)
 ```
 
@@ -289,6 +327,16 @@ the original OpenAI work that inspired it:
   year    = {2019}
 }
 ```
+
+---
+
+## Contributing
+
+Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for dev
+setup, running the tests and viewer, code style, and how to add a new viewer
+scenario.
+
+Changelog: see [`CHANGELOG.md`](CHANGELOG.md) for the per-release notes.
 
 ---
 

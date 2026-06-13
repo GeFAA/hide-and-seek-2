@@ -1,0 +1,49 @@
+# Changelog
+
+All notable changes to this project are documented here.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.5.0] -- 2026-06-13
+
+### Added
+
+- **Named viewer scenarios.** The 3D viewer now ships with a set of curated,
+  hand-authored episodes — **Fort Building**, **Ramp Use**, **Running &
+  Chasing**, **Door Blocking**, and **Sensory Deception** — each isolating one
+  emergent behaviour from the original *Emergent Tool Use* work.
+- **In-viewer scenario picker.** Switch between scenarios from a picker in the
+  viewer itself, with no reload (you can still load any trajectory file
+  manually).
+- **Live GitHub Pages demo.** Try the viewer in your browser with no install at
+  <https://gefaa.github.io/hide-and-seek-2/>.
+- **Continuous integration.** A GitHub Actions workflow byte-compiles every
+  package and runs the JAX-free configuration tests on each push and pull
+  request.
+- **Project docs.** Added this `CHANGELOG.md` and a `CONTRIBUTING.md` guide.
+- **Agent faces & on-screen event cues.** Agents now show simple faces, and the
+  viewer surfaces on-screen cues as key events happen during an episode.
+
+## [1.0.1] -- 2026-06-13
+
+### Fixed
+
+- **3D viewer overhaul** to a clean, OpenAI-style scene:
+  - a clean square arena bounded by correctly oriented border walls;
+  - an opaque box lock-emblem, fixing the previously black box faces;
+  - soft ground-glow agent halos that replace the old sphere "blob";
+  - a subtler heading indicator.
+
+## [1.0.0] -- 2026-06-13
+
+### Added
+
+- **Initial public release.** A JAX/Flax multi-agent RL scaffold — MAPPO with
+  Centralized-Training / Decentralized-Execution, an entity Transformer with GRU
+  memory, ELO historical self-play, and the Hide & Seek 2.0 mechanics — together
+  with the browser-based 3D replay viewer.
+
+[1.5.0]: https://github.com/GeFAA/hide-and-seek-2/releases/tag/v1.5.0
+[1.0.1]: https://github.com/GeFAA/hide-and-seek-2/releases/tag/v1.0.1
+[1.0.0]: https://github.com/GeFAA/hide-and-seek-2/releases/tag/v1.0.0

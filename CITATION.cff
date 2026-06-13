@@ -11,7 +11,7 @@ abstract: >-
   dynamic lighting, destructible walls and doors, and stamina, to provoke richer
   emergent tool use, deception, and teamwork. This is a research scaffold.
 type: software
-version: "2.0.0"
+version: "1.5.0"
 date-released: "2026-06-13"
 license: MIT
 keywords:
@@ -25,8 +25,8 @@ keywords:
   - emergent-tool-use
 authors:
   - name: "Hide & Seek 2.0 contributors"
-repository-code: "https://github.com/"
-url: "https://github.com/"
+repository-code: "https://github.com/GeFAA/hide-and-seek-2"
+url: "https://github.com/GeFAA/hide-and-seek-2"
 references:
   - type: article
     title: "Emergent Tool Use From Multi-Agent Autocurricula"

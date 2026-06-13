@@ -359,6 +359,7 @@ const GEO = {
   auraDisc: new THREE.PlaneGeometry(1, 1),      // flat ground glow pool (agents)
   cylinder: new THREE.CylinderGeometry(0.32, 0.32, 0.9, 18),
   nose: new THREE.ConeGeometry(0.085, 0.22, 12),
+  eye: new THREE.SphereGeometry(0.06, 10, 8),    // agent face dots
   ringMarker: new THREE.RingGeometry(0.5, 0.62, 32),
   decoyCore: new THREE.IcosahedronGeometry(0.22, 1),
   spottedRing: new THREE.RingGeometry(0.62, 0.78, 40),
@@ -537,6 +538,16 @@ function makeEntityViz(meta) {
     nose.rotation.x = Math.PI / 2;            // point cone along +Z
     nose.position.set(0, 0.5 * (size / 0.4), 0.34 * (size / 0.4));
     group.add(nose);
+
+    // Two small dark "eyes" on the front -> a friendly face (reference style).
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x222831, roughness: 0.5 });
+    for (const ex of [-0.12, 0.12]) {
+      const eye = new THREE.Mesh(GEO.eye, eyeMat);
+      const sc = size / 0.4;
+      eye.scale.setScalar(sc);
+      eye.position.set(ex * sc, 0.62 * sc, 0.27 * sc);
+      group.add(eye);
+    }
 
     // Vision cone (hidden unless toggled). Flat translucent wedge on the floor.
     cone = makeVisionCone(baseColor);
@@ -998,6 +1009,8 @@ function buildHUD() {
     </div>
     <div class="step-counter">t <b id="step-cur">0</b> <span class="max">/ <span id="step-max">0</span></span></div>
     <div class="spotted-ind" id="spotted-ind"><span class="dot"></span>SPOTTED</div>
+    <select class="scenario-select" id="scenario-select" title="Choose a scenario"
+      style="font:inherit;font-size:12px;color:#1f2733;background:rgba(255,255,255,0.55);border:1px solid rgba(15,30,55,0.14);border-radius:8px;padding:4px 8px;margin-right:8px;cursor:pointer;outline:none;max-width:190px"></select>
     <button class="icon-btn" id="btn-load" title="Load a trajectory file">
       <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16" stroke="currentColor" stroke-width="2" fill="none"/></svg>
       Load
@@ -1105,6 +1118,7 @@ function buildHUD() {
   ui.legend = byId("legend");
   ui.capTitle = byId("cap-title");
   ui.capSub = byId("cap-sub");
+  ui.scenarioSelect = byId("scenario-select");
   ui.fileInput = fileInput;
   ui.drop = drop;
   ui.toast = toast;
@@ -1388,6 +1402,7 @@ function installTrajectory(traj) {
   buildArena(traj.bound);
   buildEntities(traj);
   state.pos = 0;
+  state.lastEvFrame = -1;
   state.pinnedId = -1;
   state.followTargetId = -1;
   updateInspector(-1);
@@ -1404,6 +1419,7 @@ function installTrajectory(traj) {
 
   ui.title.textContent = traj.title;
   if (ui.capTitle) ui.capTitle.textContent = traj.title;
+  if (ui.capSub) ui.capSub.textContent = "";   // scenario loader sets a description
 
   // Auto-play on load.
   if (!state.playing) togglePlay();
@@ -1411,7 +1427,57 @@ function installTrajectory(traj) {
   toast(`Loaded ${traj.title} — ${traj.nFrames} frames, ${state.vizById.size} entities`, "ok");
 }
 
-/** Fetch + parse the default trajectory JSON. */
+let _manifest = null;
+
+/** Fetch the scenario manifest, populate the picker, and load the default one. */
+async function loadScenarios() {
+  try {
+    const res = await fetch("./trajectories/manifest.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const man = await res.json();
+    if (!man || !Array.isArray(man.scenarios) || !man.scenarios.length) {
+      throw new Error("empty manifest");
+    }
+    _manifest = man;
+    const sel = ui.scenarioSelect;
+    if (sel) {
+      sel.innerHTML = man.scenarios
+        .map((s) => `<option value="${s.id}">${s.title}</option>`)
+        .join("");
+      sel.addEventListener("change", () => loadScenarioById(sel.value));
+    }
+    const hasDefault = man.default && man.scenarios.some((s) => s.id === man.default);
+    const hashId = (location.hash.match(/scenario=([\w-]+)/) || [])[1];
+    const wanted = hashId && man.scenarios.some((s) => s.id === hashId) ? hashId
+                 : (hasDefault ? man.default : man.scenarios[0].id);
+    if (sel) sel.value = wanted;
+    await loadScenarioById(wanted);
+    return true;
+  } catch (err) {
+    console.warn("No scenario manifest:", err);
+    return false;
+  }
+}
+
+/** Load one scenario by manifest id and set the caption description. */
+async function loadScenarioById(id) {
+  const entry = _manifest && _manifest.scenarios.find((s) => s.id === id);
+  if (!entry) return;
+  try {
+    const res = await fetch("./trajectories/" + entry.file, { cache: "no-cache" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const doc = await res.json();
+    installTrajectory(Trajectory.parse(doc));
+    if (ui.scenarioSelect) ui.scenarioSelect.value = id;
+    if (ui.capSub) ui.capSub.textContent = entry.description || "";
+    try { history.replaceState(null, "", "#scenario=" + id); } catch (e) { /* ignore */ }
+  } catch (err) {
+    toast("Could not load scenario: " + (err.message || id), "err");
+    console.error(err);
+  }
+}
+
+/** Fetch + parse the default trajectory JSON (fallback when no manifest). */
 async function loadDefault() {
   try {
     const res = await fetch(DEFAULT_TRAJ_URL, { cache: "no-cache" });
@@ -1444,6 +1510,28 @@ function loadFromFile(file) {
   reader.readAsText(file);
 }
 
+/** Toast brief on-screen cues when key events happen between integer frames. */
+function emitEvents(idx) {
+  const traj = state.traj;
+  if (!traj || idx < 1) return;
+  const cur = traj.frameAt(idx);
+  const prev = traj.frameAt(idx - 1);
+  if (!cur || !prev || !cur.ent || !prev.ent) return;
+  if (prev.phase === "prep" && cur.phase === "main") toast("Seekers released!", "ev");
+  const pm = new Map(prev.ent.map((e) => [e.id, e]));
+  for (const e of cur.ent) {
+    const p = pm.get(e.id);
+    if (!p) continue;
+    const meta = traj.staticOf(e.id);
+    if (p.a && !e.a) {
+      if (meta && meta.type === "door") toast("Door opened", "ev");
+      else if (meta && meta.type === "wall") toast("Wall broken!", "ev");
+    }
+    if (!p.dc && e.dc) toast("Decoy activated", "ev");
+    if (!p.sn && e.sn) toast("Hider spotted!", "ev");
+  }
+}
+
 // ============================================================================
 // [L] Main animation loop
 // ============================================================================
@@ -1463,6 +1551,15 @@ function animate() {
     if (state.pos >= state.traj.nFrames - 1) {
       if (state.loop) state.pos = 0;
       else { state.pos = state.traj.nFrames - 1; if (state.playing) togglePlay(); }
+    }
+  }
+
+  // On-screen event cues at integer-frame transitions during forward playback.
+  if (state.traj) {
+    const fi = Math.round(state.pos);
+    if (fi !== state.lastEvFrame) {
+      if (state.lastEvFrame >= 0 && fi === state.lastEvFrame + 1) emitEvents(fi);
+      state.lastEvFrame = fi;
     }
   }
 
@@ -1509,7 +1606,8 @@ async function boot() {
     buildArena(6); // default until a trajectory loads (arena_size 12 -> bound 6)
     gridGroup.visible = state.showGrid;
     animate();
-    await loadDefault();
+    const ok = await loadScenarios();
+    if (!ok) await loadDefault();
     window.__hns2Booted = true; // cancel the index.html watchdog
   } catch (err) {
     showBootError("The viewer failed to initialize: " + (err.message || err));

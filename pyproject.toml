@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hide-and-seek-2"
-version = "2.0.0"
+version = "1.5.0"
 description = "A JAX/Flax recreation and expansion of OpenAI's 2019 Emergent Tool Use (Hide-and-Seek) multi-agent RL environment."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -50,9 +50,10 @@ logging = ["wandb>=0.16", "tensorboard>=2.15"]
 cuda12 = ["jax[cuda12]>=0.4.25"]
 
 [project.urls]
-Homepage = "https://github.com/"
-Documentation = "https://github.com/"
-Repository = "https://github.com/"
+Homepage = "https://github.com/GeFAA/hide-and-seek-2"
+Repository = "https://github.com/GeFAA/hide-and-seek-2"
+"Live Demo" = "https://gefaa.github.io/hide-and-seek-2/"
+Changelog = "https://github.com/GeFAA/hide-and-seek-2/blob/main/CHANGELOG.md"
 
 [project.scripts]
 hns2-train = "train:main"

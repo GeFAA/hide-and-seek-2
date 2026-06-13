@@ -1,0 +1,32 @@
+name: CI
+
+# Runs the JAX-free parts of the project so the badge stays green without a
+# GPU / accelerator: byte-compile every package, then run the one test module
+# that imports only the pure-Python `config` (no jax/jaxlib installed here).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Byte-compile all packages
+        run: python -m compileall -q config.py train.py envs models trainers utils viz tests examples
+
+      - name: Run JAX-free tests
+        env:
+          PYTHONPATH: .
+        run: python -m pytest tests/test_config.py -q

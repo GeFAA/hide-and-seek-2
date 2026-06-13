@@ -103,9 +103,12 @@ python -m viz.serve
 # http://localhost:8000  (load my_rollout.json from the viewer's UI)
 ```
 
-Recorded trajectories can be large, so the repository's `.gitignore` ignores
-`viz/web/trajectories/*.json` **except** the committed `demo_trajectory.json` —
-your own recordings stay local unless you choose to add them with `git add -f`.
+The curated scenarios in `viz/web/trajectories/` (the demo, the named scenarios,
+and `manifest.json`) are **committed** — they ship with the repo and are
+published to GitHub Pages. Real recorded rollouts can be large, so put them in
+**`viz/web/recordings/`** instead, which is **gitignored** and stays local. Load
+a recording into the viewer from its file picker, or move it into
+`trajectories/` and add a manifest entry if you want to publish it.
 
 ---
 
@@ -233,6 +236,7 @@ Exact hues are defined in the viewer's web sources under
 | [`recorder.py`](recorder.py) | Exports **real** JAX rollouts to the trajectory format (uses numpy). |
 | `serve.py` | Stdlib static server: `python -m viz.serve` serves `viz/web/`. |
 | `web/` | The Three.js viewer (HTML / CSS / ES modules) — no build step. |
-| `web/trajectories/` | Where trajectory files live; `demo_trajectory.json` is committed. |
+| `web/trajectories/` | Committed scenario files + `manifest.json` (the demo and named scenarios). |
+| `web/recordings/` | Local-only (gitignored) home for large real rollouts. |
 
 See the top-level [`README.md`](../README.md) for the project overview.

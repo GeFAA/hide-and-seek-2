@@ -1,0 +1,49 @@
+name: Deploy viewer to Pages
+
+# Publishes the static Three.js viewer in viz/web/ to GitHub Pages. This is the
+# standard "static site from GitHub Actions" pattern: upload viz/web as a Pages
+# artifact, then deploy it. No build step — the viewer is plain ES modules.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "viz/web/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# Least-privilege token scoped for Pages deploys via OIDC.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deploy at a time; don't cancel an in-flight publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload viewer artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: viz/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
