@@ -1,10 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<!--
+  Default theme is DARK. We set data-theme as early as possible (and read the
+  persisted choice in the inline script below) so there is no light-flash before
+  viewer.js boots. viewer.js's applyTheme() is the source of truth thereafter.
+-->
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Hide &amp; Seek 2.0 &mdash; 3D Viewer</title>
-  <meta name="description" content="Bright, clean 3D viewer for Hide & Seek 2.0 trajectories." />
+  <meta name="description" content="Clean dark/light 3D viewer for Hide & Seek 2.0 trajectories, with a self-play learning dashboard." />
+
+  <!-- Restore the persisted theme before first paint (avoids a flash). -->
+  <script>
+    try {
+      var t = localStorage.getItem('hns2-theme');
+      document.documentElement.dataset.theme = (t === 'light' || t === 'dark') ? t : 'dark';
+    } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+  </script>
 
   <!--
     Inter font (weights 400/600/700) from Google Fonts for the light, clean UI.

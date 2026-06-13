@@ -1,35 +1,85 @@
 /* =========================================================================
-   style.css -- Bright, clean "OpenAI Emergent Tool Use" light theme for the
-   HnS 2.0 viewer.
+   style.css -- Hide & Seek 2.0 viewer UI.
 
-   The 3D scene lives on a full-bleed WebGL canvas (a soft light studio with a
-   white tiled arena + foam-city backdrop); everything here is the frosted
-   WHITE-GLASS HUD that floats over it. Palette is the bright set shared with
-   trajectory.js COLORS:
+   DARK is the default theme; a light/dark toggle in the top bar flips
+   document.documentElement[data-theme]. ALL colors are CSS custom properties
+   defined per-theme under [data-theme="dark"] / [data-theme="light"] so the
+   whole DOM restyles instantly (viewer.js also mirrors these onto the root as
+   inline vars when applying a theme, and drives the matching Three.js scene
+   palette). The 3D scene lives on a full-bleed WebGL canvas; everything here is
+   the frosted-glass HUD that floats over it.
 
-     bg #e7edf3   ground #f3f5f8   grid #d6dde4
-     panel glass rgba(255,255,255,0.72), 1px rgba(15,30,55,0.08) border, blur
-     text #1f2733   muted #6c7785   accent #2f6bff
-     hider #2f9be8  seeker #f2604d  box_light #f2b441  box_heavy #e89a2b
-     ramp #b9a98f   decoy #8b5cf6   wall #edf0f4       door #a9c6e2
-     spotted #f59e2e
+   LIGHT == the original bright "OpenAI Emergent Tool Use" studio look.
+   DARK  == a moody-but-clean dark studio.
 
    Font: Inter (Google Fonts) with a graceful system-ui fallback.
    ========================================================================= */
 
+/* ---- shared tokens (theme-independent) --------------------------------- */
 :root {
-  --bg:        #e7edf3;
-  --ground:    #f3f5f8;
-  --grid:      #d6dde4;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --radius-lg: 18px;
+  --blur: blur(16px) saturate(140%);
+  --font: Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
 
+  /* sensible dark defaults so first paint (before JS) is already dark */
+  --bg: #0b0f17;
+  --text: #dbe5f3;
+}
+
+/* ===================== DARK THEME (default) ============================== */
+[data-theme="dark"] {
+  --bg:           #0b0f17;
+  --panel:        rgba(18, 24, 36, 0.74);
+  --panel-solid:  rgba(16, 21, 32, 0.96);
+  --panel-border: rgba(120, 150, 200, 0.14);
+  --panel-hover:  rgba(28, 36, 52, 0.86);
+
+  --text:   #dbe5f3;
+  --muted:  #8a98ad;
+  --accent: #5b9dff;
+  --accent-strong: #4a86f0;
+
+  --hider:     #43b6ff;
+  --seeker:    #ff6b6b;
+  --box_light: #f5b73e;
+  --box_heavy: #ef9a2b;
+  --ramp:      #a78bfa;
+  --decoy:     #c77dff;
+  --wall:      #2b3446;
+  --door:      #56c7e6;
+  --spotted:   #ffd24a;
+
+  --amber: #f5b73e;
+  --red:   #ff6b6b;
+
+  --chip-line: rgba(120, 150, 200, 0.20);
+  --zebra:     rgba(255, 255, 255, 0.025);
+  --shadow:    0 14px 38px rgba(0, 0, 0, 0.45);
+  --scrim:     rgba(8, 11, 18, 0.66);
+  --cap-text:  #e7eefb;
+  --cap-halo:  rgba(8, 12, 20, 0.85);
+  --track:     rgba(255, 255, 255, 0.08);
+
+  --vignette: rgba(120, 150, 210, 0.05);
+  color-scheme: dark;
+}
+
+/* ===================== LIGHT THEME ====================================== */
+[data-theme="light"] {
+  --bg:           #e7edf3;
   --panel:        rgba(255, 255, 255, 0.72);
   --panel-solid:  rgba(255, 255, 255, 0.94);
   --panel-border: rgba(15, 30, 55, 0.08);
   --panel-hover:  rgba(255, 255, 255, 0.92);
 
-  --text:  #1f2733;
-  --muted: #6c7785;
+  --text:   #1f2733;
+  --muted:  #6c7785;
   --accent: #2f6bff;
+  --accent-strong: #2a60e6;
 
   --hider:     #2f9be8;
   --seeker:    #f2604d;
@@ -44,13 +94,16 @@
   --amber: #f2b441;
   --red:   #f2604d;
 
-  --radius: 14px;
-  --radius-sm: 9px;
-  --shadow: 0 10px 30px rgba(31, 45, 70, 0.12);
-  --blur: blur(16px) saturate(140%);
+  --chip-line: rgba(15, 30, 55, 0.10);
+  --zebra:     rgba(15, 30, 55, 0.025);
+  --shadow:    0 10px 30px rgba(31, 45, 70, 0.12);
+  --scrim:     rgba(231, 237, 243, 0.7);
+  --cap-text:  #2a3340;
+  --cap-halo:  rgba(255, 255, 255, 0.85);
+  --track:     rgba(15, 30, 55, 0.10);
 
-  --font: Inter, system-ui, -apple-system, "Segoe UI", Roboto,
-          "Helvetica Neue", Arial, sans-serif;
+  --vignette: rgba(255, 255, 255, 0.35);
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }
@@ -68,10 +121,22 @@ html, body {
   text-rendering: optimizeLegibility;
 }
 
+/* A short global color transition so the light/dark flip feels smooth. */
+html.theme-anim,
+html.theme-anim .glass,
+html.theme-anim .btn,
+html.theme-anim .icon-btn,
+html.theme-anim .tab,
+html.theme-anim body { transition: background-color 0.32s ease, color 0.32s ease, border-color 0.32s ease; }
+
 #app { position: fixed; inset: 0; }
 
-#canvas-host { position: absolute; inset: 0; }
+#canvas-host { position: absolute; inset: 0; transition: opacity 0.3s ease, filter 0.3s ease; }
 #canvas-host canvas { display: block; }
+
+/* When a non-Watch tab is active, dim + hide the live 3D canvas. */
+body[data-tab="learning"] #canvas-host,
+body[data-tab="about"]    #canvas-host { opacity: 0; pointer-events: none; }
 
 /* A very faint top-light vignette to lift the scene -- purely cosmetic. */
 #app::after {
@@ -79,12 +144,11 @@ html, body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(130% 90% at 50% 8%,
-              rgba(255, 255, 255, 0.35) 0%, transparent 45%);
+  background: radial-gradient(130% 90% at 50% 8%, var(--vignette) 0%, transparent 45%);
   z-index: 1;
 }
 
-/* ---- shared frosted-white glass surface --------------------------------- */
+/* ---- shared frosted glass surface --------------------------------------- */
 .glass {
   background: var(--panel);
   border: 1px solid var(--panel-border);
@@ -97,6 +161,18 @@ html, body {
 .overlay { position: absolute; z-index: 5; pointer-events: none; }
 .overlay > * { pointer-events: auto; }
 
+/* Hide the watch-only overlays on the Learning / About tabs. */
+body[data-tab="learning"] .watch-only,
+body[data-tab="about"]    .watch-only { display: none !important; }
+
+/* ---- boot / tab enter animations --------------------------------------- */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+body.booting #hud-top      { animation: fadeUp 0.5s var(--ease) both; }
+body.booting #panel-left   { animation: fadeUp 0.55s 0.05s var(--ease) both; }
+body.booting #transport    { animation: fadeUp 0.55s 0.08s var(--ease) both; }
+body.booting #scenario-caption { animation: fadeUp 0.6s 0.12s var(--ease) both; }
+
 /* ========================================================================= */
 /* TOP HUD BAR                                                               */
 /* ========================================================================= */
@@ -106,15 +182,15 @@ html, body {
   right: 14px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 10px 16px;
+  gap: 12px;
+  padding: 9px 14px;
 }
 
 .hud-title {
   display: flex;
   flex-direction: column;
   line-height: 1.15;
-  margin-right: 4px;
+  margin-right: 2px;
 }
 .hud-title .t1 {
   font-weight: 700;
@@ -130,6 +206,39 @@ html, body {
 }
 
 .hud-spacer { flex: 1 1 auto; }
+
+/* ---- tab bar ----------------------------------------------------------- */
+.tab-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--track);
+  border: 1px solid var(--panel-border);
+  margin-left: 6px;
+}
+.tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+.tab:hover { color: var(--text); }
+.tab.active {
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+}
+[data-theme="light"] .tab.active { color: #fff; }
 
 /* phase pill ------------------------------------------------------------- */
 .pill {
@@ -151,14 +260,14 @@ html, body {
   box-shadow: 0 0 6px currentColor;
 }
 .pill.prep {
-  color: #c98322;
-  background: rgba(242, 180, 65, 0.16);
-  border-color: rgba(242, 180, 65, 0.45);
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 16%, transparent);
+  border-color: color-mix(in srgb, var(--amber) 45%, transparent);
 }
 .pill.main {
   color: var(--red);
-  background: rgba(242, 96, 77, 0.12);
-  border-color: rgba(242, 96, 77, 0.4);
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+  border-color: color-mix(in srgb, var(--red) 42%, transparent);
 }
 
 /* score block ------------------------------------------------------------ */
@@ -173,26 +282,27 @@ html, body {
   flex-direction: column;
   align-items: center;
   padding: 2px 14px;
-  min-width: 58px;
+  min-width: 56px;
 }
 .score .lbl {
   font-size: 9px; letter-spacing: 1.4px; text-transform: uppercase;
   color: var(--muted);
 }
-.score .val { font-size: 17px; font-weight: 700; }
+.score .val { font-size: 17px; font-weight: 700; display: inline-block; }
 .score.hiders .val { color: var(--hider); }
 .score.seekers .val { color: var(--seeker); }
 .score .vs { color: var(--muted); align-self: center; font-size: 11px; }
-.scores .sep {
-  width: 1px; background: var(--panel-border); margin: 6px 0;
-}
+
+/* number "pop" when a score changes */
+@keyframes scoreBump { 0% { transform: scale(1); } 35% { transform: scale(1.28); } 100% { transform: scale(1); } }
+.score .val.bump { animation: scoreBump 0.4s var(--ease); }
 
 /* step counter ----------------------------------------------------------- */
 .step-counter {
   font-variant-numeric: tabular-nums;
   font-size: 13px;
   color: var(--text);
-  padding: 0 6px;
+  padding: 0 4px;
 }
 .step-counter .max { color: var(--muted); }
 
@@ -216,9 +326,9 @@ html, body {
   transition: all 0.2s ease;
 }
 .spotted-ind.live {
-  color: #c97e1f;
-  border-color: rgba(245, 158, 46, 0.55);
-  background: rgba(245, 158, 46, 0.12);
+  color: var(--spotted);
+  border-color: color-mix(in srgb, var(--spotted) 55%, transparent);
+  background: color-mix(in srgb, var(--spotted) 14%, transparent);
 }
 .spotted-ind.live .dot {
   background: var(--spotted);
@@ -230,19 +340,44 @@ html, body {
   50%      { opacity: 0.45; transform: scale(0.78); }
 }
 
+/* scenario picker -------------------------------------------------------- */
+.scenario-select {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--track);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  padding: 5px 9px;
+  cursor: pointer;
+  outline: none;
+  max-width: 190px;
+  transition: border-color 0.15s ease;
+}
+.scenario-select:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.scenario-select option { color: #1f2733; } /* native dropdown stays readable */
+
+/* theme toggle ----------------------------------------------------------- */
+.theme-toggle {
+  width: 32px; height: 30px;
+  padding: 0;
+  justify-content: center;
+}
+.theme-ic { display: inline-flex; }
+.theme-toggle svg { width: 16px; height: 16px; }
+
 /* ========================================================================= */
 /* LEFT CONTROL PANEL (collapsible)                                          */
 /* ========================================================================= */
 #panel-left {
-  top: 78px;
+  top: 76px;
   left: 14px;
-  width: 224px;
-  max-height: calc(100vh - 170px);
+  width: 226px;
+  max-height: calc(100vh - 168px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-              opacity 0.28s ease;
+  transition: transform 0.28s var(--ease), opacity 0.28s ease;
 }
 #panel-left.collapsed {
   transform: translateX(calc(-100% - 18px));
@@ -268,7 +403,7 @@ html, body {
 }
 .panel-body::-webkit-scrollbar { width: 8px; }
 .panel-body::-webkit-scrollbar-thumb {
-  background: rgba(15, 30, 55, 0.14); border-radius: 8px;
+  background: var(--chip-line); border-radius: 8px;
 }
 
 .panel-section + .panel-section { margin-top: 16px; }
@@ -289,7 +424,7 @@ html, body {
 .swatch {
   width: 11px; height: 11px; border-radius: 3px;
   flex: none;
-  box-shadow: 0 0 0 1px rgba(15, 30, 55, 0.06);
+  box-shadow: 0 0 0 1px var(--chip-line);
 }
 
 /* toggles ---------------------------------------------------------------- */
@@ -305,8 +440,8 @@ html, body {
 .toggle .box {
   width: 15px; height: 15px;
   border-radius: 4px;
-  border: 1px solid rgba(15, 30, 55, 0.18);
-  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--chip-line);
+  background: var(--track);
   position: relative;
   flex: none;
   transition: all 0.18s ease;
@@ -314,7 +449,7 @@ html, body {
 .toggle input:checked + .box {
   background: var(--accent);
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.16);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 .toggle input:checked + .box::after {
   content: "";
@@ -325,15 +460,15 @@ html, body {
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
-.toggle:hover .box { border-color: rgba(47, 107, 255, 0.5); }
+.toggle:hover .box { border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
 
 /* ========================================================================= */
 /* INSPECTOR (hover/click tooltip panel)                                     */
 /* ========================================================================= */
 #inspector {
-  top: 78px;
+  top: 76px;
   right: 14px;
-  width: 210px;
+  width: 212px;
   padding: 12px 14px;
   font-size: 11.5px;
   transition: opacity 0.15s ease, transform 0.15s ease;
@@ -362,16 +497,16 @@ html, body {
 /* tiny stamina bar inside inspector */
 .stamina-bar {
   height: 5px; border-radius: 3px;
-  background: rgba(15, 30, 55, 0.1);
+  background: var(--track);
   overflow: hidden; width: 70px; align-self: center;
 }
 .stamina-bar > i {
   display: block; height: 100%;
-  background: linear-gradient(90deg, #f2604d, #f2b441, #2f9be8);
+  background: linear-gradient(90deg, var(--seeker), var(--amber), var(--hider));
 }
 
 /* ========================================================================= */
-/* BOTTOM-CENTER SCENARIO CAPTION (OpenAI-clip style)                        */
+/* BOTTOM-CENTER SCENARIO CAPTION                                            */
 /* ========================================================================= */
 #scenario-caption {
   position: absolute;
@@ -391,13 +526,13 @@ html, body {
   font-size: 31px;
   font-weight: 600;
   letter-spacing: 0.2px;
-  color: #2a3340;
+  color: var(--cap-text);
   line-height: 1.15;
-  /* soft white halo so it reads over the bright scene */
+  /* soft halo so it reads over the scene (theme-aware) */
   text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9),
-    0 0 14px rgba(255, 255, 255, 0.85),
-    0 2px 18px rgba(255, 255, 255, 0.7);
+    0 1px 0 var(--cap-halo),
+    0 0 16px var(--cap-halo),
+    0 2px 22px var(--cap-halo);
 }
 #scenario-caption .cap-sub {
   font-size: 12.5px;
@@ -405,7 +540,7 @@ html, body {
   letter-spacing: 1.6px;
   text-transform: uppercase;
   color: var(--muted);
-  text-shadow: 0 1px 8px rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 10px var(--cap-halo);
 }
 
 /* ========================================================================= */
@@ -438,7 +573,7 @@ html, body {
   padding: 0 10px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--panel-border);
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--track);
   color: var(--text);
   font-family: var(--font);
   font-size: 12px;
@@ -448,7 +583,7 @@ html, body {
 }
 .btn:hover {
   background: var(--panel-hover);
-  border-color: rgba(15, 30, 55, 0.16);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--panel-border));
 }
 .btn:active { transform: translateY(1px); }
 .btn.primary {
@@ -456,12 +591,12 @@ html, body {
   border-color: var(--accent);
   color: #ffffff;
   width: 42px;
-  box-shadow: 0 4px 12px rgba(47, 107, 255, 0.28);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent);
 }
-.btn.primary:hover { background: #2a60e6; }
+.btn.primary:hover { background: var(--accent-strong); }
 .btn.active {
-  background: rgba(47, 107, 255, 0.12);
-  border-color: rgba(47, 107, 255, 0.4);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   color: var(--accent);
 }
 .btn svg { width: 15px; height: 15px; fill: currentColor; }
@@ -472,7 +607,7 @@ html, body {
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-sm);
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--track);
 }
 .speed-group button {
   border: none;
@@ -487,7 +622,7 @@ html, body {
   transition: all 0.12s ease;
 }
 .speed-group button + button { border-left: 1px solid var(--panel-border); }
-.speed-group button:hover { color: var(--text); background: rgba(47, 107, 255, 0.06); }
+.speed-group button:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .speed-group button.active {
   color: #ffffff;
   background: var(--accent);
@@ -515,7 +650,7 @@ html, body {
   left: 0; right: 0;
   height: 5px;
   border-radius: 3px;
-  background: rgba(15, 30, 55, 0.1);
+  background: var(--track);
   overflow: visible;
   pointer-events: none;
 }
@@ -523,7 +658,7 @@ html, body {
   position: absolute;
   left: 0; top: 0; bottom: 0;
   border-radius: 3px;
-  background: linear-gradient(90deg, rgba(47, 107, 255, 0.55), var(--accent));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, transparent), var(--accent));
   width: 0%;
 }
 /* phase-boundary tick at prep_steps */
@@ -532,7 +667,7 @@ html, body {
   top: -4px; bottom: -4px;
   width: 2px;
   background: var(--amber);
-  box-shadow: 0 0 6px rgba(242, 180, 65, 0.7);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--amber) 70%, transparent);
   border-radius: 2px;
   transform: translateX(-50%);
 }
@@ -544,7 +679,7 @@ html, body {
   transform: translateX(-50%);
   font-size: 8px;
   letter-spacing: 1px;
-  color: #c98322;
+  color: var(--amber);
   opacity: 0.9;
 }
 /* the actual range input, transparent, on top */
@@ -564,17 +699,17 @@ input.scrubber::-webkit-slider-thumb {
   appearance: none;
   width: 14px; height: 14px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--panel-solid);
   border: 2px solid var(--accent);
-  box-shadow: 0 1px 6px rgba(47, 107, 255, 0.45);
+  box-shadow: 0 1px 6px color-mix(in srgb, var(--accent) 45%, transparent);
   cursor: grab;
 }
 input.scrubber::-moz-range-thumb {
   width: 14px; height: 14px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--panel-solid);
   border: 2px solid var(--accent);
-  box-shadow: 0 1px 6px rgba(47, 107, 255, 0.45);
+  box-shadow: 0 1px 6px color-mix(in srgb, var(--accent) 45%, transparent);
   cursor: grab;
 }
 input.scrubber::-moz-range-track { background: transparent; }
@@ -589,21 +724,21 @@ input.scrubber::-moz-range-track { background: transparent; }
   display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(231, 237, 243, 0.7);
+  background: var(--scrim);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 #drop-hint.show { display: flex; }
 #drop-hint .drop-card {
   padding: 40px 56px;
-  border: 2px dashed rgba(47, 107, 255, 0.5);
+  border: 2px dashed color-mix(in srgb, var(--accent) 50%, transparent);
   border-radius: 16px;
   text-align: center;
   color: var(--accent);
   letter-spacing: 0.5px;
   font-size: 14px;
   font-weight: 600;
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--panel-solid);
   box-shadow: var(--shadow);
 }
 #drop-hint .drop-card small {
@@ -624,7 +759,7 @@ input.scrubber::-moz-range-track { background: transparent; }
   padding: 0 11px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--panel-border);
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--track);
   color: var(--text);
   font-family: var(--font);
   font-size: 11px;
@@ -634,7 +769,7 @@ input.scrubber::-moz-range-track { background: transparent; }
 }
 .icon-btn:hover {
   background: var(--panel-hover);
-  border-color: rgba(47, 107, 255, 0.35);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
   color: var(--accent);
 }
 .icon-btn svg { width: 13px; height: 13px; fill: currentColor; }
@@ -666,11 +801,229 @@ input.scrubber::-moz-range-track { background: transparent; }
   transition: opacity 0.25s ease, transform 0.25s ease;
   max-width: 70vw;
   text-align: center;
+  color: var(--text);
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-#toast.ok    { color: var(--accent); border-color: rgba(47, 107, 255, 0.35); }
-#toast.warn  { color: #c98322; border-color: rgba(242, 180, 65, 0.45); }
-#toast.err   { color: var(--red); border-color: rgba(242, 96, 77, 0.45); }
+#toast.ok    { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+#toast.warn  { color: var(--amber);  border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+#toast.err   { color: var(--red);    border-color: color-mix(in srgb, var(--red) 45%, transparent); }
+#toast.ev    { color: var(--text);   border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* ========================================================================= */
+/* TAB PANELS (Learning / About) -- full-screen scrollable overlays         */
+/* ========================================================================= */
+.tab-panel {
+  position: absolute;
+  inset: 64px 0 0 0;          /* sit just below the top bar */
+  z-index: 6;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.26s ease, transform 0.26s ease;
+}
+.tab-panel[hidden] { display: none; }
+.tab-panel.shown { opacity: 1; transform: none; }
+
+.tab-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 22px 22px 64px;
+  display: flex;
+  justify-content: center;
+}
+.tab-scroll::-webkit-scrollbar { width: 10px; }
+.tab-scroll::-webkit-scrollbar-thumb { background: var(--chip-line); border-radius: 8px; }
+
+/* ---- Learning dashboard ------------------------------------------------ */
+.learning-root { width: 100%; max-width: 960px; }
+.learn-wrap { display: flex; flex-direction: column; gap: 22px; }
+
+.learn-error {
+  margin: 40px auto; max-width: 480px;
+  padding: 20px 24px; border-radius: var(--radius);
+  background: var(--panel); border: 1px solid var(--panel-border);
+  color: var(--text); line-height: 1.6;
+}
+.learn-error code {
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);
+  padding: 1px 5px; border-radius: 4px;
+}
+
+.learn-intro { }
+.learn-h {
+  margin: 0 0 8px; font-size: 22px; font-weight: 700; letter-spacing: 0.2px;
+  color: var(--text);
+}
+.learn-lead {
+  margin: 0; font-size: 14px; line-height: 1.6; color: var(--text);
+  max-width: 72ch;
+}
+.learn-note {
+  margin: 8px 0 0; font-size: 12px; line-height: 1.5; color: var(--muted);
+  max-width: 72ch;
+}
+
+/* team skill cards */
+.learn-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.team-card {
+  --team: var(--accent);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 18px;
+  position: relative;
+  overflow: hidden;
+}
+.team-card::before {
+  content: "";
+  position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: var(--team);
+}
+.tc-head { display: flex; align-items: center; gap: 8px; }
+.tc-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--team); box-shadow: 0 0 8px var(--team);
+}
+.tc-name { font-weight: 700; font-size: 14px; color: var(--text); }
+.tc-elo-lbl {
+  margin-left: auto; font-size: 9px; letter-spacing: 1.6px;
+  text-transform: uppercase; color: var(--muted);
+}
+.tc-elo {
+  font-size: 38px; font-weight: 800; line-height: 1.1; color: var(--team);
+  font-variant-numeric: tabular-nums; margin: 4px 0 10px;
+}
+.tc-bar {
+  position: relative;
+  height: 10px; border-radius: 6px;
+  background: var(--track);
+  overflow: hidden;
+}
+.tc-bar-fill {
+  display: block; height: 100%; width: 0%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--team) 55%, transparent), var(--team));
+  transition: width 0.2s linear;
+}
+.tc-bar-pct {
+  position: absolute; right: 8px; top: -1px;
+  font-size: 8px; font-weight: 700; line-height: 12px;
+  color: var(--text); opacity: 0.7;
+}
+.tc-meta { margin-top: 9px; font-size: 12px; color: var(--muted); }
+.tc-wr b { color: var(--text); font-variant-numeric: tabular-nums; }
+.tc-tactic {
+  margin-top: 8px; font-size: 12.5px; font-style: italic;
+  color: var(--text); opacity: 0.85; line-height: 1.4;
+}
+
+/* sections */
+.learn-section {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 18px 18px;
+}
+.learn-h3 { margin: 0 0 3px; font-size: 15px; font-weight: 700; color: var(--text); }
+.learn-sub { margin: 0 0 12px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+.chart-holder { width: 100%; }
+.chart-holder canvas { display: block; width: 100%; }
+
+/* milestone table */
+.learn-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.learn-table thead th {
+  text-align: left;
+  font-size: 9.5px; letter-spacing: 1.4px; text-transform: uppercase;
+  color: var(--muted); font-weight: 700;
+  padding: 6px 10px; border-bottom: 1px solid var(--panel-border);
+  white-space: nowrap;
+}
+.learn-table tbody td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--panel-border);
+  color: var(--text); vertical-align: top; line-height: 1.45;
+}
+.learn-table tbody tr:nth-child(odd) { background: var(--zebra); }
+.learn-table tbody tr:last-child td { border-bottom: none; }
+.learn-table .col-num { width: 28px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.learn-table .col-when { width: 84px; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.learn-table .col-team { width: 92px; }
+.learn-table .col-beh { width: 200px; font-weight: 600; }
+.learn-table .beh-emoji { margin-right: 5px; }
+
+.team-chip {
+  display: inline-block;
+  padding: 2px 9px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.2px;
+  border: 1px solid transparent;
+}
+.chip-hider {
+  color: var(--hider);
+  background: color-mix(in srgb, var(--hider) 16%, transparent);
+  border-color: color-mix(in srgb, var(--hider) 40%, transparent);
+}
+.chip-seeker {
+  color: var(--seeker);
+  background: color-mix(in srgb, var(--seeker) 16%, transparent);
+  border-color: color-mix(in srgb, var(--seeker) 40%, transparent);
+}
+
+/* ---- About tab --------------------------------------------------------- */
+.about-wrap { width: 100%; max-width: 760px; }
+.about-title {
+  margin: 0 0 14px; font-size: 30px; font-weight: 800; letter-spacing: -0.2px;
+  color: var(--text); display: flex; align-items: center; gap: 12px;
+}
+.about-badge {
+  font-size: 13px; font-weight: 700; letter-spacing: 0.5px;
+  color: #fff; background: var(--accent);
+  padding: 4px 10px; border-radius: 999px;
+}
+.about-lead {
+  margin: 0 0 14px; font-size: 14.5px; line-height: 1.65; color: var(--text);
+}
+.about-lead-sub { color: var(--muted); }
+.about-lead .c-hider { color: var(--hider); }
+.about-lead .c-seeker { color: var(--seeker); }
+.about-h2 {
+  margin: 26px 0 12px; font-size: 16px; font-weight: 700; color: var(--text);
+}
+.about-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.about-card {
+  background: var(--panel); border: 1px solid var(--panel-border);
+  border-radius: var(--radius); padding: 14px 16px;
+}
+.about-ic { font-size: 22px; line-height: 1; margin-bottom: 8px; }
+.about-card-t { font-weight: 700; font-size: 13.5px; margin-bottom: 4px; color: var(--text); }
+.about-card-d { font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+
+.about-links { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+.about-link {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px; border-radius: var(--radius-sm);
+  background: var(--track); border: 1px solid var(--panel-border);
+  color: var(--text); text-decoration: none; font-weight: 600; font-size: 13px;
+  transition: all 0.15s ease;
+}
+.about-link:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent);
+  background: var(--panel-hover);
+}
+.about-link svg { color: currentColor; }
 
 /* ========================================================================= */
 /* BOOT ERROR (no CDN / no module support)                                  */
@@ -705,16 +1058,35 @@ input.scrubber::-moz-range-track { background: transparent; }
 .boot-error__hint { color: var(--muted); font-size: 11.5px; line-height: 1.6; }
 .boot-error__hint code {
   color: var(--accent);
-  background: rgba(47, 107, 255, 0.08);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   padding: 1px 5px;
   border-radius: 4px;
 }
 
 /* ---- responsive trims ---------------------------------------------------- */
+@media (max-width: 900px) {
+  .learn-cards { grid-template-columns: 1fr; }
+  .about-grid { grid-template-columns: 1fr; }
+}
 @media (max-width: 720px) {
   #panel-left { width: 200px; }
   .scores .score { min-width: 46px; padding: 2px 8px; }
   .hud-title .t2 { display: none; }
   #inspector { width: 180px; }
   #scenario-caption .cap-title { font-size: 24px; }
+  .tab { padding: 6px 11px; }
+  .learn-table .col-beh { width: auto; }
+}
+
+/* ---- reduced motion ------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  body.booting #hud-top,
+  body.booting #panel-left,
+  body.booting #transport,
+  body.booting #scenario-caption { animation: none !important; }
+  .tab-panel { transition: none; }
+  #canvas-host { transition: none; }
+  .score .val.bump { animation: none; }
+  html.theme-anim, html.theme-anim * { transition: none !important; }
+  .spotted-ind.live .dot { animation: none; }
 }

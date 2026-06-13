@@ -5,6 +5,29 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] -- 2026-06-13
+
+### Added
+
+- **Dark mode (now the default).** The whole viewer — 3D scene and UI — has a
+  clean dark theme, with a one-click light/dark toggle (the `T` key) that is
+  remembered between visits.
+- **Tabs: Watch / Learning / About.** A tab bar (with `#tab=…` deep links)
+  switches between the 3D replay, a learning dashboard, and a beginner-friendly
+  explainer of the project and its 2.0 mechanics.
+- **Learning dashboard.** A newcomer-friendly view of the self-play
+  autocurriculum: team skill cards (ELO + win rate), an "arms race" win-rate
+  chart, an ELO-over-time chart, and a table of emergent behaviours with the
+  training step at which each was learned. Driven by `viz/make_learning_data.py`
+  (pure stdlib, illustrative synthetic data).
+
+### Changed
+
+- **Animations reworked** throughout: an easing camera intro, cross-fading tab
+  switches, fading/sliding panels, animated number count-ups and progress bars,
+  drawn-in charts, and smoother in-scene effects — all respecting
+  `prefers-reduced-motion`.
+
 ## [1.5.1] -- 2026-06-13
 
 ### Fixed

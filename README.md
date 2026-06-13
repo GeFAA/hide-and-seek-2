@@ -99,6 +99,18 @@ scenario picker** (or load any trajectory file manually):
 The live demo opens on the **Synthetic Showcase**; pick another scenario from
 the in-viewer picker to compare behaviours.
 
+### Learning tab & dark mode
+
+The viewer has three tabs — **Watch** (the 3D replay), **Learning**, and
+**About** — and is **dark by default** with a one-click light/dark toggle
+(`T`). The **Learning** tab makes the self-play *autocurriculum* legible for
+newcomers: team **skill cards** (ELO + win rate), an **"arms race"** win-rate
+chart whose lines cross over as each team adapts, an **ELO-over-time** chart,
+and a **milestone table** of the emergent behaviours — running & chasing, fort
+building, cooperative pushing, ramp use, ramp/door defense and deception — with
+the training step at which each was learned. (The curve is illustrative
+synthetic data; real training needs a GPU.)
+
 ---
 
 ## Architecture overview
