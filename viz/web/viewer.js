@@ -355,9 +355,10 @@ const GEO = {
   capsule: new THREE.CapsuleGeometry(0.32, 0.5, 8, 18),
   cube: new THREE.BoxGeometry(1, 1, 1),         // walls / doors (hard slabs)
   roundedCube: makeUnitBoxGeo(),                // boxes (soft edges)
-  aura: new THREE.SphereGeometry(0.5, 20, 16),  // soft agent glow halo
+  aura: new THREE.SphereGeometry(0.5, 20, 16),  // decoy glow shell
+  auraDisc: new THREE.PlaneGeometry(1, 1),      // flat ground glow pool (agents)
   cylinder: new THREE.CylinderGeometry(0.32, 0.32, 0.9, 18),
-  nose: new THREE.ConeGeometry(0.12, 0.4, 14),
+  nose: new THREE.ConeGeometry(0.085, 0.22, 12),
   ringMarker: new THREE.RingGeometry(0.5, 0.62, 32),
   decoyCore: new THREE.IcosahedronGeometry(0.22, 1),
   spottedRing: new THREE.RingGeometry(0.62, 0.78, 40),
@@ -368,20 +369,38 @@ const GEO = {
  * a rounded white square with a simple grey keyhole/lock glyph. Built once and
  * shared by all boxes. Returns a THREE.CanvasTexture.
  */
-let _lockTexture = null;
-function lockEmblemTexture() {
-  if (_lockTexture) return _lockTexture;
+let _lockTex = {};
+function lockEmblemTexture(color) {
+  const key = color.getHexString();           // sRGB hex of the box's own colour
+  if (_lockTex[key]) return _lockTex[key];
   const S = 256;
   const c = document.createElement("canvas");
-  c.width = S;
-  c.height = S;
+  c.width = S; c.height = S;
   const ctx = c.getContext("2d");
-  ctx.clearRect(0, 0, S, S);
+  // OPAQUE base fill in the box's colour -- this IS the whole face (no black).
+  ctx.fillStyle = "#" + key;
+  ctx.fillRect(0, 0, S, S);
+  // Stamped emblem: a soft inset panel + a muted lock glyph.
+  const pad = 72, x = pad, y = pad, w = S - pad * 2, h = S - pad * 2;
+  roundRect(ctx, x, y, w, h, 28);
+  ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.fill();
+  ctx.lineWidth = 5; ctx.strokeStyle = "rgba(60,46,16,0.30)"; ctx.stroke();
+  const cx = S / 2;
+  ctx.strokeStyle = "rgba(60,46,16,0.55)"; ctx.fillStyle = "rgba(60,46,16,0.55)";
+  ctx.lineWidth = 13; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.arc(cx, 122, 24, Math.PI, 0, false); ctx.stroke();  // shackle
+  roundRect(ctx, cx - 38, 122, 76, 56, 11); ctx.fill();                    // body
+  ctx.fillStyle = "rgba(255,255,255,0.85)";                                // keyhole
+  ctx.beginPath(); ctx.arc(cx, 150, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillRect(cx - 3.5, 150, 7, 19);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; tex.needsUpdate = true;
+  _lockTex[key] = tex;
+  return tex;
+}
 
-  // Rounded white badge.
-  const pad = 64;
-  const r = 34;
-  const x = pad, y = pad, w = S - pad * 2, h = S - pad * 2;
+/** Trace a rounded-rectangle path (caller fills/strokes). */
+function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
@@ -389,45 +408,24 @@ function lockEmblemTexture() {
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.fill();
-  ctx.lineWidth = 5;
-  ctx.strokeStyle = "rgba(120,132,148,0.55)";
-  ctx.stroke();
+}
 
-  // Lock glyph: shackle (arc) + body, soft grey.
-  const cx = S / 2;
-  ctx.strokeStyle = "rgba(120,132,148,0.85)";
-  ctx.fillStyle = "rgba(120,132,148,0.85)";
-  ctx.lineWidth = 14;
-  ctx.lineCap = "round";
-  // Shackle.
-  ctx.beginPath();
-  ctx.arc(cx, 118, 30, Math.PI, 0, false);
-  ctx.stroke();
-  // Body (rounded rect).
-  const bw = 86, bh = 64, bx = cx - bw / 2, by = 118;
-  const br = 12;
-  ctx.beginPath();
-  ctx.moveTo(bx + br, by);
-  ctx.arcTo(bx + bw, by, bx + bw, by + bh, br);
-  ctx.arcTo(bx + bw, by + bh, bx, by + bh, br);
-  ctx.arcTo(bx, by + bh, bx, by, br);
-  ctx.arcTo(bx, by, bx + bw, by, br);
-  ctx.closePath();
-  ctx.fill();
-  // Keyhole.
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.beginPath();
-  ctx.arc(cx, by + 28, 9, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillRect(cx - 4, by + 28, 8, 22);
-
+/** Soft white radial-gradient sprite, shared by the agent ground-glow pools. */
+let _glowTex = null;
+function softGlowTexture() {
+  if (_glowTex) return _glowTex;
+  const S = 128;
+  const c = document.createElement("canvas");
+  c.width = S; c.height = S;
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  g.addColorStop(0.0, "rgba(255,255,255,1)");
+  g.addColorStop(0.35, "rgba(255,255,255,0.45)");
+  g.addColorStop(1.0, "rgba(255,255,255,0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
   const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  tex.needsUpdate = true;
-  _lockTexture = tex;
+  tex.colorSpace = THREE.SRGBColorSpace; tex.needsUpdate = true;
+  _glowTex = tex;
   return tex;
 }
 
@@ -511,31 +509,33 @@ function makeEntityViz(meta) {
     body.castShadow = true;
     group.add(body);
 
-    // Soft glowing AURA: a translucent additive halo in the agent's color.
+    // Soft glow POOL on the floor under the agent (clean reference-style halo) --
+    // a flat additive radial disc, NOT a 3D sphere blob.
     const auraMat = new THREE.MeshBasicMaterial({
+      map: softGlowTexture(),
       color: baseColor,
       transparent: true,
-      opacity: 0.18,
+      opacity: 0.6,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
-      side: THREE.BackSide,
     });
-    aura = new THREE.Mesh(GEO.aura, auraMat);
-    const auraScale = (size / 0.4) * 1.6;
-    aura.scale.set(auraScale, auraScale * 1.25, auraScale);
-    aura.position.y = 0.55 * (size / 0.4);
+    aura = new THREE.Mesh(GEO.auraDisc, auraMat);
+    aura.rotation.x = -Math.PI / 2;
+    const auraScale = (size / 0.4) * 2.7;
+    aura.scale.set(auraScale, auraScale, 1);
+    aura.position.y = 0.03;
     group.add(aura);
 
-    // Heading nose, pointing +Z in local space (rotated by heading later).
+    // Small heading "beak": a subtle body-tinted nub showing facing (+Z local).
     const noseMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
+      color: baseColor,
       emissive: baseColor,
-      emissiveIntensity: 0.35,
-      roughness: 0.4,
+      emissiveIntensity: 0.12,
+      roughness: 0.5,
     });
     nose = new THREE.Mesh(GEO.nose, noseMat);
     nose.rotation.x = Math.PI / 2;            // point cone along +Z
-    nose.position.set(0, 0.55 * (size / 0.4), 0.5);
+    nose.position.set(0, 0.5 * (size / 0.4), 0.34 * (size / 0.4));
     group.add(nose);
 
     // Vision cone (hidden unless toggled). Flat translucent wedge on the floor.
@@ -544,23 +544,16 @@ function makeEntityViz(meta) {
     group.add(cone);
   } else if (meta.type === "box_light" || meta.type === "box_heavy") {
     const heavy = meta.type === "box_heavy";
-    // Warm yellow / deeper amber, soft and friendly. A lock/face emblem decal
-    // sits on the side faces (BoxGeometry material groups: +X,-X,+Y,-Y,+Z,-Z).
-    const emblem = lockEmblemTexture();
-    const plainMat = new THREE.MeshStandardMaterial({
-      color: baseColor,
+    // Warm crate with a stamped lock emblem. The emblem texture is OPAQUE and
+    // baked in the box's own colour, so every face shows colour + emblem -- no
+    // black faces (the old transparent map multiplied the side faces to black).
+    const mat = new THREE.MeshStandardMaterial({
+      map: lockEmblemTexture(baseColor),
       roughness: heavy ? 0.6 : 0.65,
       metalness: 0.0,
+      emissiveIntensity: 0,   // keep baseEmissive 0 -> no self-glow on boxes
     });
-    const sideMat = new THREE.MeshStandardMaterial({
-      color: baseColor,
-      roughness: heavy ? 0.6 : 0.65,
-      metalness: 0.0,
-      map: emblem,
-    });
-    // Only the 4 vertical side faces show the emblem; top/bottom stay plain.
-    const matSet = [sideMat, sideMat, plainMat, plainMat, sideMat, sideMat];
-    body = new THREE.Mesh(GEO.roundedCube, matSet);
+    body = new THREE.Mesh(GEO.roundedCube, mat);
     const s = size * (heavy ? 1.3 : 1.0) * 2; // size is roughly a half-extent
     body.scale.set(s, s, s);
     body.position.y = s / 2;
