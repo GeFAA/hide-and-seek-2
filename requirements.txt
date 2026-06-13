@@ -1,0 +1,29 @@
+# Hide & Seek 2.0 — runtime dependencies
+# ---------------------------------------------------------------------------
+# IMPORTANT (GPU): the line below installs the CPU build of jaxlib, which is
+# enough to import the package and run the CPU smoke tests. To train at speed
+# you MUST install a CUDA-enabled jaxlib that matches your CUDA / cuDNN /
+# driver versions. Do NOT pin a CUDA build here — follow the official JAX
+# install matrix instead:
+#   https://jax.readthedocs.io/en/latest/installation.html
+# e.g.  pip install -U "jax[cuda12]"
+# ---------------------------------------------------------------------------
+
+jax>=0.4.25
+jaxlib>=0.4.25          # CPU build by default; replace per the JAX CUDA matrix
+flax>=0.8.0             # linen neural-network modules + struct dataclasses
+optax>=0.2.0            # gradient transforms / optimizers (PPO updates)
+distrax>=0.1.5          # probability distributions (Gaussian + Categorical heads)
+chex>=0.1.85            # shape/dtype assertions used in tests
+numpy>=1.24             # host-side array glue (e.g. examples, logging)
+
+# --- dev / test only (NOT a training-runtime dependency) ------------------
+# pytest is the test runner; it is intentionally NOT listed above so that
+# `pip install -r requirements.txt` does not pull a test runner into training
+# or inference environments. Install it for development via the package extra:
+#   pip install -e ".[dev]"   (see pyproject.toml [project.optional-dependencies])
+# pytest>=7.4
+
+# --- optional, uncomment if you want experiment tracking ------------------
+# wandb>=0.16            # Weights & Biases logging (utils/logging.py)
+# tensorboard>=2.15      # TensorBoard logging (utils/logging.py)

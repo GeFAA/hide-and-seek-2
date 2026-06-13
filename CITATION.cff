@@ -1,0 +1,49 @@
+cff-version: 1.2.0
+message: >-
+  If you use Hide & Seek 2.0 in your research, please cite this project as well
+  as the original OpenAI work that inspired it (see `references` below).
+title: "Hide & Seek 2.0: A JAX Recreation and Expansion of Emergent Tool Use"
+abstract: >-
+  A modern JAX/Flax recreation and expansion of OpenAI's 2019 Emergent Tool Use
+  From Multi-Agent Autocurricula (Hide-and-Seek). The environment, physics, and
+  MAPPO learner run end-to-end on the GPU (PureJaxRL / JaxMARL style). Version
+  2.0 adds variable mass and cooperative physics, sensory decoys, fog of war and
+  dynamic lighting, destructible walls and doors, and stamina, to provoke richer
+  emergent tool use, deception, and teamwork. This is a research scaffold.
+type: software
+version: "2.0.0"
+date-released: "2026-06-13"
+license: MIT
+keywords:
+  - reinforcement-learning
+  - multi-agent
+  - jax
+  - flax
+  - mappo
+  - self-play
+  - hide-and-seek
+  - emergent-tool-use
+authors:
+  - name: "Hide & Seek 2.0 contributors"
+repository-code: "https://github.com/"
+url: "https://github.com/"
+references:
+  - type: article
+    title: "Emergent Tool Use From Multi-Agent Autocurricula"
+    year: 2019
+    authors:
+      - family-names: Baker
+        given-names: Bowen
+      - family-names: Kanitscheider
+        given-names: Ingmar
+      - family-names: Markov
+        given-names: Todor
+      - family-names: Wu
+        given-names: Yi
+      - family-names: Powell
+        given-names: Glenn
+      - family-names: McGrew
+        given-names: Bob
+      - family-names: Mordatch
+        given-names: Igor
+    notes: "arXiv:1909.07528"

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Hide &amp; Seek 2.0 &mdash; 3D Viewer</title>
+  <meta name="description" content="Bright, clean 3D viewer for Hide & Seek 2.0 trajectories." />
+
+  <!--
+    Inter font (weights 400/600/700) from Google Fonts for the light, clean UI.
+    Loaded via <link> so it degrades gracefully: if the CDN is blocked the CSS
+    font-family stack falls back to system-ui / Segoe UI without breaking layout.
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" />
+
+  <!--
+    Three.js r160 is loaded straight from a CDN via an importmap -- NO build step.
+    `viewer.js` and `trajectory.js` import `three` and `three/addons/...` by these
+    bare specifiers. If the CDN is unreachable, the module never loads and we show
+    a friendly fallback message (see the inline error handler below + viewer.js).
+  -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <!-- ===================================================================== -->
+  <!-- The WebGL canvas mounts here; all HUD/panels are absolutely-positioned -->
+  <!-- glass overlays built procedurally by viewer.js.                        -->
+  <!-- ===================================================================== -->
+  <div id="app">
+    <div id="canvas-host"></div>
+
+    <!-- Friendly fallback shown if the ES module fails to load (no CDN / no
+         WebGL / a thrown error during boot). viewer.js hides this on success
+         and re-shows it with a specific message on failure. -->
+    <div id="boot-error" class="boot-error" hidden>
+      <div class="boot-error__card">
+        <div class="boot-error__title">Viewer could not start</div>
+        <div class="boot-error__msg" id="boot-error-msg">
+          The 3D engine failed to load.
+        </div>
+        <div class="boot-error__hint">
+          This usually means the Three.js CDN (unpkg.com) is unreachable, or the
+          page is opened from <code>file://</code> without a local server. Try
+          serving this folder, e.g. <code>python -m http.server</code>, and check
+          your network connection.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!--
+    If the browser does not support importmaps / ES modules at all, this classic
+    script runs and reveals the fallback. (Module scripts are skipped by such
+    browsers, so this is the only code that executes there.)
+  -->
+  <script nomodule>
+    var be = document.getElementById('boot-error');
+    var msg = document.getElementById('boot-error-msg');
+    if (be) be.hidden = false;
+    if (msg) msg.textContent =
+      'This browser does not support ES modules / import maps, which this viewer requires.';
+  </script>
+
+  <!--
+    Last-resort guard: if the module script below fails to even fetch (e.g. a
+    404 on viewer.js or a CDN DNS failure), reveal the fallback after a beat.
+    On success, viewer.js calls window.__hns2Booted = true to cancel this.
+  -->
+  <script>
+    window.addEventListener('error', function (e) {
+      // Only surface module-loading style errors here; runtime errors inside
+      // viewer.js handle their own messaging.
+      if (e && e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+        var be = document.getElementById('boot-error');
+        if (be) be.hidden = false;
+      }
+    }, true);
+    setTimeout(function () {
+      if (!window.__hns2Booted) {
+        var be = document.getElementById('boot-error');
+        if (be && be.hidden) {
+          be.hidden = false;
+          var msg = document.getElementById('boot-error-msg');
+          if (msg) msg.textContent =
+            'The viewer module did not finish loading. The Three.js CDN may be unreachable.';
+        }
+      }
+    }, 6000);
+  </script>
+
+  <!-- The viewer is a single cohesive ES module. -->
+  <script type="module" src="./viewer.js"></script>
+</body>
+</html>
