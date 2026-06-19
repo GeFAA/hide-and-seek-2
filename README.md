@@ -97,37 +97,47 @@ Or via the Makefile: `make demo` then `make viz`. To record a **real** rollout
 after a JAX run, use `viz/recorder.py`. Full guide, controls and the palette
 legend: **[`viz/README.md`](viz/README.md)**.
 
-### Scenarios
+## It actually learns (CPU self-play)
 
-The viewer ships with **named scenarios**, each a short **simulated** episode —
-real collision + line-of-sight perception, not scripted — that ends in a **clear
-winner**. Switch between them with the **in-viewer scenario picker** (or load any
-trajectory file manually):
+The full MAPPO/JAX stack targets a GPU — but the repo also ships a **real, tiny
+self-play learner that runs on any CPU**: [`learn/train.py`](learn/train.py). Two
+**tabular Q-learning** agents (a seeker and a hider) learn to play on a grid with
+walls and line-of-sight, purely by playing each other. It genuinely converges in
+seconds:
+
+```text
+ep      0   seeker see-rate=0.11   hider evasion=0.90   (random policies)
+ep   7500   seeker see-rate=0.70   hider evasion=0.99
+ep  40000   seeker see-rate=0.42   hider evasion=0.99   (the hider won the arms race)
+```
+
+Both teams start at chance and climb far above it — that's the proof of real
+learning. Run it yourself: `python -m learn.train`. The Watch clips and the
+Learning-tab curve below are produced from this run by
+[`learn/export_viewer.py`](learn/export_viewer.py) — **measured, not scripted**.
+
+### Watch the learned behaviour
+
+The watch clips are rollouts of the **trained** policy (switch with the in-viewer
+scenario picker):
 
 | Scenario | What it shows |
 | --- | --- |
-| **Synthetic Showcase** | The default — a full game with boxes, a ramp, a decoy and a door, ending in a clear result. |
-| **Running & Chasing** | Open-arena pursuit: seekers see, chase and tag a hider. |
-| **Fort Building** | Hiders push boxes into a barricade, then try to survive. |
-| **Door Blocking** | Hiders jam the doorway with a heavy box to hold the seekers out. |
+| **Trained seeker vs random hider** | The seeker *learned to hunt* — it chases and corners a random hider and **wins**. |
+| **Trained hider vs random seeker** | The hider *learned to use the walls* to break line-of-sight and **evades**. |
+| **Untrained (random vs random)** | Before any learning — both agents just move at random. |
 
-Each clip ends with a **SEEKERS WIN / HIDERS WIN** banner explaining the outcome.
-The episodes come from a pure-stdlib micro-simulation
-([`viz/make_demo_trajectory.py`](viz/make_demo_trajectory.py)) whose built-in
-validation gate refuses to emit any trajectory with overlaps, wall-clipping, or an
-undecided result.
+Each clip ends with a clear **SEEKERS WIN / HIDERS WIN** banner.
 
 ### Learning tab & dark mode
 
 The viewer has three tabs — **Watch** (the 3D replay), **Learning**, and
-**About** — and is **dark by default** with a one-click light/dark toggle
-(`T`). The **Learning** tab makes the self-play *autocurriculum* legible for
-newcomers: team **skill cards** (ELO + win rate), an **"arms race"** win-rate
-chart whose lines cross over as each team adapts, an **ELO-over-time** chart,
-and a **milestone table** of the emergent behaviours — running & chasing, fort
-building, cooperative pushing, ramp use, ramp/door defense and deception — with
-the training step at which each was learned. (The curve is illustrative
-synthetic data; real training needs a GPU.)
+**About** — and is **dark by default** with a one-click light/dark toggle (`T`).
+The **Learning** tab plots the **real, measured** self-play run: team skill cards
+(ELO + win rate), an **"arms race"** chart (the seeker's sight-rate climbs from
+~11% to ~70%, then the hider learns to evade and takes over), an ELO-over-time
+chart, and a milestone table — all computed from an actual CPU training run,
+**not synthetic**.
 
 ---
 
@@ -165,6 +175,9 @@ hide-and-seek-2/
 │       ├── ci.yml             # CI: byte-compile + JAX-free config tests
 │       └── pages.yml          # deploy viz/web to GitHub Pages
 ├── config.py                 # single source of truth for ALL dims & hyperparams
+├── learn/                    # REAL CPU self-play RL (no GPU) — tabular Q-learning
+│   ├── train.py              # train two agents by self-play; prints the learning curve
+│   └── export_viewer.py      # export the learned behaviour + measured curve to the viewer
 ├── train.py                  # CLI entrypoint: build config -> make_train -> run
 ├── README.md
 ├── CHANGELOG.md               # Keep a Changelog, newest first

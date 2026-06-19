@@ -23,7 +23,7 @@ help: ## Show this help.
 	@echo "  train     Launch training (train.py)"
 	@echo "  lint      Lint with ruff"
 	@echo "  format    Auto-format with black + ruff --fix"
-	@echo "  demo      Write the 3D-viewer demo trajectory (stdlib only)"
+	@echo "  demo      Train the self-play AI + export learned trajectories"
 	@echo "  viz       Serve the 3D viewer at http://localhost:8000 (runs demo first)"
 
 install: ## Install runtime and dev dependencies.
@@ -48,14 +48,15 @@ format: ## Auto-format the codebase.
 	$(PYTHON) -m ruff check --fix .
 
 # --- 3D replay viewer ------------------------------------------------------
-# These need no jax/numpy: `demo` is pure stdlib and `viz` serves viz/web with
+# `demo` trains the CPU self-play learner (needs numpy, no GPU) and exports the
+# LEARNED behaviour + measured curve into the viewer; `viz` serves viz/web with
 # the stdlib http.server. PowerShell equivalents:
-#   demo:  python viz\make_demo_trajectory.py
-#   viz:   python viz\make_demo_trajectory.py ; python -m viz.serve
+#   demo:  python -m learn.export_viewer
+#   viz:   python -m learn.export_viewer ; python -m viz.serve
 # The viewer must be opened over http:// (NOT file://) — it uses ES modules.
 
-demo: ## Write the 3D-viewer demo trajectory (viz/web/trajectories/demo_trajectory.json).
-	$(PYTHON) viz/make_demo_trajectory.py
+demo: ## Train the self-play AI + export learned trajectories and the measured curve.
+	$(PYTHON) -m learn.export_viewer
 
 viz: demo ## Serve the 3D viewer (viz/web) at http://localhost:8000 — runs `demo` first.
 	$(PYTHON) -m viz.serve

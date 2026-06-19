@@ -5,6 +5,26 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] -- 2026-06-20
+
+### Added
+
+- **A real, CPU-only self-play learner — `learn/`.** Two tabular Q-learning agents
+  (a seeker and a hider) learn to play hide-and-seek on a grid with walls and
+  line-of-sight, purely by playing each other. It genuinely converges on a laptop:
+  the seeker's sight-rate against a random hider climbs from ~11% (chance) to ~70%,
+  and the hider's evasion against a random seeker from ~90% to ~99%. The small,
+  runs-anywhere counterpart to the GPU JAX/MAPPO stack. (`python -m learn.train`.)
+- **The viewer now shows LEARNED behaviour and the MEASURED curve.** The Watch
+  clips are rollouts of the trained policy (a trained seeker catching a random
+  hider; a trained hider evading a random seeker; an untrained baseline), and the
+  Learning tab plots the actual training run — no longer scripted or synthetic.
+  (`python -m learn.export_viewer`.)
+
+### Removed
+
+- The scripted/simulated demo scenarios, replaced by the learned rollouts above.
+
 ## [1.8.0] -- 2026-06-19
 
 ### Changed
