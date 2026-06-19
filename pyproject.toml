@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hide-and-seek-2"
-version = "1.7.1"
+version = "1.8.0"
 description = "A JAX/Flax recreation and expansion of OpenAI's 2019 Emergent Tool Use (Hide-and-Seek) multi-agent RL environment."
 readme = "README.md"
 requires-python = ">=3.10"

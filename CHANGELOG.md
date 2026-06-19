@@ -5,6 +5,24 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] -- 2026-06-19
+
+### Changed
+
+- **Demo trajectories are now a real micro-simulation, not scripted waypoints.**
+  Agents and boxes move with steering + **collision resolution** — no more boxes
+  clipping into each other or agents walking through walls or each other. Seekers
+  **perceive** hiders through a vision cone + range + line-of-sight and chase only
+  what they can see; hiders flee and use cover. Every episode resolves to a
+  **clear winner**, and a pure-stdlib validation gate refuses to emit any
+  trajectory with an overlap, wall penetration, out-of-bounds entity, teleport, or
+  undecided outcome.
+
+### Added
+
+- **Result banner.** The viewer shows a clear **SEEKERS WIN / HIDERS WIN** banner
+  (with the reason) once a game is decided.
+
 ## [1.7.1] -- 2026-06-19
 
 ### Fixed

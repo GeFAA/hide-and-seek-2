@@ -99,21 +99,23 @@ legend: **[`viz/README.md`](viz/README.md)**.
 
 ### Scenarios
 
-The viewer ships with several **named scenarios**, each a short curated episode
-that isolates one emergent behaviour. Switch between them with the **in-viewer
-scenario picker** (or load any trajectory file manually):
+The viewer ships with **named scenarios**, each a short **simulated** episode —
+real collision + line-of-sight perception, not scripted — that ends in a **clear
+winner**. Switch between them with the **in-viewer scenario picker** (or load any
+trajectory file manually):
 
 | Scenario | What it shows |
 | --- | --- |
-| **Synthetic Showcase** | The default demo episode — a tidy tour of all 2.0 mechanics at once. |
-| **Fort Building** | Hiders fetch and stack boxes into a barricade during the prep phase. |
-| **Ramp Use** | A seeker uses a ramp to climb and break the hiders' line of defence. |
-| **Running & Chasing** | The open-field pursuit: seekers released, hiders fleeing across the arena. |
-| **Door Blocking** | Hiders hold a chokepoint by blocking a doorway. |
-| **Sensory Deception** | A decoy spoofs another entity's signature to mislead the seekers. |
+| **Synthetic Showcase** | The default — a full game with boxes, a ramp, a decoy and a door, ending in a clear result. |
+| **Running & Chasing** | Open-arena pursuit: seekers see, chase and tag a hider. |
+| **Fort Building** | Hiders push boxes into a barricade, then try to survive. |
+| **Door Blocking** | Hiders jam the doorway with a heavy box to hold the seekers out. |
 
-The live demo opens on the **Synthetic Showcase**; pick another scenario from
-the in-viewer picker to compare behaviours.
+Each clip ends with a **SEEKERS WIN / HIDERS WIN** banner explaining the outcome.
+The episodes come from a pure-stdlib micro-simulation
+([`viz/make_demo_trajectory.py`](viz/make_demo_trajectory.py)) whose built-in
+validation gate refuses to emit any trajectory with overlaps, wall-clipping, or an
+undecided result.
 
 ### Learning tab & dark mode
 
@@ -214,7 +216,7 @@ hide-and-seek-2/
 │       ├── trajectories/      # committed scenario JSONs + manifest.json
 │       │   ├── manifest.json  # scenario list for the in-viewer picker
 │       │   ├── demo_trajectory.json
-│       │   └── *.json         # named scenarios (fort, ramp, chase, door, decoy)
+│       │   └── *.json         # named scenarios (showcase, chase, fort, doors)
 │       └── recordings/        # local-only real rollouts (gitignored)
 └── tests/                     # pytest sanity tests (shapes, jit, vmap, elo)
 ```

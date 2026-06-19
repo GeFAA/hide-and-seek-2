@@ -1836,6 +1836,19 @@ function buildHUD() {
   cap.innerHTML = `<span class="cap-title" id="cap-title"></span><span class="cap-sub" id="cap-sub"></span>`;
   app.appendChild(cap);
 
+  // ---- result banner: who wins (watch-only; hidden until the game is decided) --
+  const rb = el("div", "watch-only", { id: "result-banner" });
+  rb.style.cssText =
+    "position:fixed;left:50%;top:33%;transform:translate(-50%,-50%) scale(.9);" +
+    "pointer-events:none;opacity:0;transition:opacity .5s ease,transform .5s ease;" +
+    "text-align:center;z-index:40";
+  rb.innerHTML =
+    `<div id="result-title" style="font:800 46px/1.05 Inter,system-ui,sans-serif;` +
+    `letter-spacing:.5px;text-shadow:0 6px 30px rgba(0,0,0,.6)"></div>` +
+    `<div id="result-sub" style="margin-top:10px;font:500 16px Inter,system-ui,sans-serif;` +
+    `color:rgba(255,255,255,.85);text-shadow:0 2px 14px rgba(0,0,0,.5)"></div>`;
+  app.appendChild(rb);
+
   // ---- Learning tab panel (scrollable dashboard; built lazily) --------
   const learn = el("div", "tab-panel", { id: "panel-learning" });
   learn.hidden = true;
@@ -1885,6 +1898,9 @@ function buildHUD() {
   ui.legend = byId("legend");
   ui.capTitle = byId("cap-title");
   ui.capSub = byId("cap-sub");
+  ui.resultBanner = byId("result-banner");
+  ui.resultTitle = byId("result-title");
+  ui.resultSub = byId("result-sub");
   ui.scenarioSelect = byId("scenario-select");
   ui.fileInput = fileInput;
   ui.drop = drop;
@@ -2373,6 +2389,25 @@ function refreshHUD(f) {
   ui.stepMax.textContent = traj.maxSteps;
   ui.spotted.classList.toggle("live", !!f.seen_any);
 
+  // ---- result banner: reveal once the game is decided (and hide if scrubbed back)
+  const oc = traj.outcome;
+  if (oc && ui.resultBanner) {
+    const decided = f.t >= (oc.step || 0);
+    if (decided && !state._resultShown) {
+      state._resultShown = true;
+      const seekersWin = oc.winner === "seekers";
+      ui.resultTitle.textContent = seekersWin ? "SEEKERS WIN" : "HIDERS WIN";
+      ui.resultTitle.style.color = seekersWin ? "#ff7a7a" : "#5cc8ff";
+      ui.resultSub.textContent = oc.reason || "";
+      ui.resultBanner.style.opacity = "1";
+      ui.resultBanner.style.transform = "translate(-50%,-50%) scale(1)";
+    } else if (!decided && state._resultShown) {
+      state._resultShown = false;
+      ui.resultBanner.style.opacity = "0";
+      ui.resultBanner.style.transform = "translate(-50%,-50%) scale(.9)";
+    }
+  }
+
   const frac = traj.nFrames > 1 ? state.pos / (traj.nFrames - 1) : 0;
   ui.scrubber.value = (frac * 100).toFixed(2);
   ui.scrubFill.style.width = (frac * 100).toFixed(2) + "%";
@@ -2436,6 +2471,11 @@ function installTrajectory(traj) {
   ui.title.textContent = traj.title;
   if (ui.capTitle) ui.capTitle.textContent = traj.title;
   if (ui.capSub) ui.capSub.textContent = "";   // scenario loader sets a description
+  state._resultShown = false;                  // reset the win banner for the new run
+  if (ui.resultBanner) {
+    ui.resultBanner.style.opacity = "0";
+    ui.resultBanner.style.transform = "translate(-50%,-50%) scale(.9)";
+  }
 
   // Auto-play on load -- but only on the Watch tab (so opening on #tab=learning
   // doesn't run playback off-screen).

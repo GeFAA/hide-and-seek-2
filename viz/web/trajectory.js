@@ -214,6 +214,7 @@ export class Trajectory {
     this.maxSteps = Number(this.meta.max_steps) || (this.nFrames - 1);
     this.prepSteps = Number(this.meta.prep_steps) || 0;
     this.title = this.meta.title || "Hide & Seek 2.0";
+    this.outcome = doc.outcome || null;   // {winner, reason, step} (who wins)
 
     // id -> static metadata map (id == index, but the map keeps intent explicit).
     /** @type {Map<number, object>} */
