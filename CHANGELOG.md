@@ -5,6 +5,26 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] -- 2026-06-20
+
+### Added
+
+- **A live "Train" tab — watch the AI learn, in your browser, from scratch.**
+  Two tabular Q-learning agents (a seeker and a hider) start out random and learn
+  hide-and-seek by playing each other, live, on a grid with walls and
+  line-of-sight. Press **Train** and watch a mini-match of the current policy plus
+  a skill curve that climbs in real time — the seeker's sight-rate against a random
+  hider rises from ~11% toward ~70%, the hider's evasion from ~90% to ~99%. This is
+  the real tabular Q-learning from `learn/` ported to JS and running entirely on the
+  client: no GPU, no server, nothing scripted. (`viz/web/livetrain.js`.) The RL core
+  is DOM-free and verified in Node by a metric-climb gate; the full JAX/MAPPO stack
+  is the same idea at scale.
+
+### Fixed
+
+- The Watch-tab HUD overlays (control panel, transport bar, scores) no longer bleed
+  through on non-Watch tabs — the hide rule now covers any tab that isn't Watch.
+
 ## [1.9.0] -- 2026-06-20
 
 ### Added

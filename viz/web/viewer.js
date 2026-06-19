@@ -40,6 +40,7 @@ import { Trajectory } from "./trajectory.js";
 // The Learning dashboard (tables + canvas charts). Local ES module, no CDN, so
 // a static import is safe and keeps the Learning tab instant on first open.
 import { renderLearning } from "./learning.js";
+import { mountTrain } from "./livetrain.js";
 
 // We import Three.js dynamically-ish: a static import would throw at module
 // parse time if the CDN is down, and the browser would swallow it silently.
@@ -1750,6 +1751,7 @@ function buildHUD() {
 
     <nav class="tab-bar" id="tab-bar" role="tablist">
       <button class="tab" data-tab="watch" role="tab">Watch</button>
+      <button class="tab" data-tab="train" role="tab">Train</button>
       <button class="tab" data-tab="learning" role="tab">Learning</button>
       <button class="tab" data-tab="about" role="tab">About</button>
     </nav>
@@ -1855,6 +1857,12 @@ function buildHUD() {
   learn.innerHTML = `<div class="tab-scroll"><div id="learning-root" class="learning-root"></div></div>`;
   app.appendChild(learn);
 
+  // ---- Train tab panel (live in-browser self-play RL) ------------------
+  const train = el("div", "tab-panel", { id: "panel-train" });
+  train.hidden = true;
+  train.innerHTML = `<div class="tab-scroll"><div id="train-root" class="learning-root"></div></div>`;
+  app.appendChild(train);
+
   // ---- About tab panel -------------------------------------------------
   const about = el("div", "tab-panel", { id: "panel-about" });
   about.hidden = true;
@@ -1909,6 +1917,8 @@ function buildHUD() {
   ui.tabs = [...top.querySelectorAll(".tab")];
   ui.panelLearning = byId("panel-learning");
   ui.panelAbout = byId("panel-about");
+  ui.panelTrain = byId("panel-train");
+  ui.trainRoot = byId("train-root");
   ui.learningRoot = byId("learning-root");
   ui.btnTheme = byId("btn-theme");
   ui.themeIc = byId("theme-ic");
@@ -1933,9 +1943,9 @@ function aboutHTML() {
         versions of themselves until clever tactics emerge on their own.
       </p>
       <p class="about-lead about-lead-sub">
-        This viewer replays saved trajectories in 3D. Open
-        <b>Watch</b> to scrub through a scenario, or <b>Learning</b> to see how
-        the teams improved over training.
+        Open <b>Watch</b> to scrub a scenario in 3D, <b class="c-seeker">Train</b>
+        to watch two agents learn the game from scratch <b>live in your
+        browser</b>, or <b>Learning</b> to see the measured training curve.
       </p>
 
       <h2 class="about-h2">The 2.0 mechanics</h2>
@@ -1975,10 +1985,18 @@ function aboutHTML() {
       <h2 class="about-h2">How they learn</h2>
       <p class="about-lead">
         The agents are trained by <b>self-play reinforcement learning</b>: they
-        play millions of games against earlier copies of themselves. When one
-        team discovers a new trick, the other is pressured to counter it — an
+        play many games against earlier copies of themselves. When one team
+        discovers a new trick, the other is pressured to counter it — an
         ever-escalating arms race that produces surprisingly sophisticated,
         emergent behaviour.
+      </p>
+      <p class="about-lead about-lead-sub">
+        Don't just take our word for it — the <b class="c-seeker">Train</b> tab
+        runs a real, compact version of this <b>live in your browser</b>: two
+        tabular Q-learning agents on a grid with walls and line-of-sight,
+        learning by playing each other. Press Train and watch the skill curve
+        climb from random to skilled in seconds, no GPU and no server. The full
+        JAX/MAPPO stack in the repo is the same idea at scale.
       </p>
 
       <div class="about-links">
@@ -2174,7 +2192,7 @@ function syncThemeButton() {
  * @param {{updateHash?:boolean}} [opts]
  */
 function switchTab(name, opts = {}) {
-  const tab = ["watch", "learning", "about"].includes(name) ? name : "watch";
+  const tab = ["watch", "learning", "about", "train"].includes(name) ? name : "watch";
   state.tab = tab;
 
   // Tab button active states.
@@ -2190,9 +2208,13 @@ function switchTab(name, opts = {}) {
   // Toggle the two full-screen tab panels with a quick cross-fade.
   showPanel(ui.panelLearning, tab === "learning");
   showPanel(ui.panelAbout, tab === "about");
+  showPanel(ui.panelTrain, tab === "train");
 
   // Lazily build / refresh the Learning dashboard the first time it's shown.
   if (tab === "learning") initLearning();
+  // Lazily build the live trainer; pause it whenever we leave the Train tab.
+  if (tab === "train") initTrain();
+  else if (trainInst) trainInst.pause();
 
   if (isWatch) {
     // Reset the clock delta so playback doesn't jump after time off-screen.
@@ -2237,6 +2259,14 @@ function initLearning() {
   });
 }
 
+/** Lazily mount the live in-browser trainer once (browser-only). */
+let trainInst = null;
+function initTrain() {
+  if (!ui.trainRoot || trainInst) return;
+  try { trainInst = mountTrain(ui.trainRoot); }
+  catch (err) { console.error("Live trainer failed:", err); }
+}
+
 /**
  * Write the current tab + scenario into location.hash via replaceState (so it
  * doesn't spam history). Watch tab with a scenario -> "#scenario=<id>"; other
@@ -2271,7 +2301,7 @@ function parseHash() {
   }
   // A bare "#scenario=fort" implies the Watch tab.
   if (!out.tab && out.scenario) out.tab = "watch";
-  if (!["watch", "learning", "about"].includes(out.tab)) out.tab = out.tab ? "watch" : null;
+  if (!["watch", "learning", "about", "train"].includes(out.tab)) out.tab = out.tab ? "watch" : null;
   return out;
 }
 

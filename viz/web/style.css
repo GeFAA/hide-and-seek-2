@@ -135,8 +135,7 @@ html.theme-anim body { transition: background-color 0.32s ease, color 0.32s ease
 #canvas-host canvas { display: block; }
 
 /* When a non-Watch tab is active, dim + hide the live 3D canvas. */
-body[data-tab="learning"] #canvas-host,
-body[data-tab="about"]    #canvas-host { opacity: 0; pointer-events: none; }
+body[data-tab]:not([data-tab="watch"]) #canvas-host { opacity: 0; pointer-events: none; }
 
 /* A very faint top-light vignette to lift the scene -- purely cosmetic. */
 #app::after {
@@ -161,9 +160,8 @@ body[data-tab="about"]    #canvas-host { opacity: 0; pointer-events: none; }
 .overlay { position: absolute; z-index: 5; pointer-events: none; }
 .overlay > * { pointer-events: auto; }
 
-/* Hide the watch-only overlays on the Learning / About tabs. */
-body[data-tab="learning"] .watch-only,
-body[data-tab="about"]    .watch-only { display: none !important; }
+/* Hide the watch-only overlays on every non-Watch tab (Train / Learning / About). */
+body[data-tab]:not([data-tab="watch"]) .watch-only { display: none !important; }
 
 /* ---- boot / tab enter animations --------------------------------------- */
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
@@ -1090,3 +1088,19 @@ input.scrubber::-moz-range-track { background: transparent; }
   html.theme-anim, html.theme-anim * { transition: none !important; }
   .spotted-ind.live .dot { animation: none; }
 }
+
+/* ===== Train tab — live in-browser self-play RL ===== */
+.train-wrap { max-width: 1020px; margin: 0 auto; }
+.train-wrap h2 { font-size: 22px; margin: 2px 0 6px; }
+.train-intro { color: var(--muted); max-width: 70ch; margin: 0 0 16px; line-height: 1.55; }
+.train-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.train-controls .tr-speed { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.train-controls .tr-stat { color: var(--muted); font: 600 13px ui-monospace, monospace; margin-left: auto; }
+.train-grid { display: grid; grid-template-columns: minmax(300px, 400px) 1fr; gap: 16px; align-items: start; }
+.train-card { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 14px; padding: 14px; }
+.train-card .tc-title { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.train-card canvas { width: 100%; height: auto; display: block; border-radius: 8px; background: #0c111b; }
+.tr-status { margin-top: 10px; font: 600 14px ui-monospace, monospace; color: var(--text); text-align: center; }
+.tr-legend { display: flex; gap: 18px; margin-top: 12px; color: var(--muted); font-size: 12px; }
+.tr-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+@media (max-width: 860px) { .train-grid { grid-template-columns: 1fr; } }

@@ -116,6 +116,16 @@ learning. Run it yourself: `python -m learn.train`. The Watch clips and the
 Learning-tab curve below are produced from this run by
 [`learn/export_viewer.py`](learn/export_viewer.py) — **measured, not scripted**.
 
+### Train it live — in your browser
+
+Don't want to take our word for it? The viewer's **Train** tab runs this exact
+learner **live on the client** — the same tabular Q-learning, ported to JS in
+[`viz/web/livetrain.js`](viz/web/livetrain.js). Press **▶ Train** and watch two
+agents go from random to skilled: a mini-match of the current policy plays on the
+left while the skill curve climbs on the right, in real time. **No GPU, no server,
+nothing scripted** — it's the real thing computing in the page. (The RL core is
+DOM-free and covered by a Node metric-climb gate.)
+
 ### Watch the learned behaviour
 
 The watch clips are rollouts of the **trained** policy (switch with the in-viewer
@@ -131,8 +141,9 @@ Each clip ends with a clear **SEEKERS WIN / HIDERS WIN** banner.
 
 ### Learning tab & dark mode
 
-The viewer has three tabs — **Watch** (the 3D replay), **Learning**, and
-**About** — and is **dark by default** with a one-click light/dark toggle (`T`).
+The viewer has four tabs — **Watch** (the 3D replay), **Train** (the live
+in-browser learner above), **Learning**, and **About** — and is **dark by
+default** with a one-click light/dark toggle (`T`).
 The **Learning** tab plots the **real, measured** self-play run: team skill cards
 (ELO + win rate), an **"arms race"** chart (the seeker's sight-rate climbs from
 ~11% to ~70%, then the hider learns to evade and takes over), an ELO-over-time
@@ -226,6 +237,7 @@ hide-and-seek-2/
 │   ├── recorder.py            # export REAL JAX rollouts to the format (numpy)
 │   ├── serve.py               # `python -m viz.serve` -> serves viz/web
 │   └── web/                   # Three.js viewer, clean/light (no build step)
+│       ├── livetrain.js       # REAL self-play Q-learning that runs in the Train tab
 │       ├── trajectories/      # committed scenario JSONs + manifest.json
 │       │   ├── manifest.json  # scenario list for the in-viewer picker
 │       │   ├── demo_trajectory.json
