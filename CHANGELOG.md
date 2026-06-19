@@ -5,6 +5,25 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] -- 2026-06-19
+
+### Changed
+
+- **Professional visual overhaul of the 3D viewer.** Agents are now designed
+  little robot characters (rounded body, face with eyes, stubby arms, antenna,
+  and a glowing base ring) instead of bare capsules. The scene gained image-based
+  lighting (PBR materials + environment reflections), a post-processing pipeline
+  (subtle bloom + SMAA, with a safe fallback to direct rendering), a three-point
+  light rig with soft shadows, a low-roughness reflective floor, and characterful
+  animations (idle breathing / squash-stretch, lean-into-motion, eye blinks, and
+  a softly pulsing base glow).
+
+### Added
+
+- **Key art and a proper GitHub presentation.** A rendered hero banner and a
+  gallery (character key art + action scenes), plus a refreshed screenshot of the
+  actual viewer.
+
 ## [1.6.0] -- 2026-06-13
 
 ### Added

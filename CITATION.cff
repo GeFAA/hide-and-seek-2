@@ -11,8 +11,8 @@ abstract: >-
   dynamic lighting, destructible walls and doors, and stamina, to provoke richer
   emergent tool use, deception, and teamwork. This is a research scaffold.
 type: software
-version: "1.6.0"
-date-released: "2026-06-13"
+version: "1.7.0"
+date-released: "2026-06-19"
 license: MIT
 keywords:
   - reinforcement-learning

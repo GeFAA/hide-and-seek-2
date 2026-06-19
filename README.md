@@ -11,7 +11,7 @@
 > **▶ Try the live 3D demo in your browser (no install):**
 > <https://gefaa.github.io/hide-and-seek-2/>
 
-![Hide & Seek 2.0 — clean browser-based 3D replay viewer](docs/preview.png)
+![Hide & Seek 2.0 — a JAX/Flax multi-agent hide-and-seek environment with a 3D replay viewer](docs/assets/hero.png)
 
 Hide & Seek 2.0 reimplements the classic hide-and-seek multi-agent
 reinforcement-learning environment end-to-end on the GPU using
@@ -25,6 +25,22 @@ tool use, deception, and teamwork. This repository is a **research scaffold**:
 it is engineered to be correct, importable, and faithful to current JAX idioms,
 and to *train fast* on a single accelerator. Performance figures quoted below
 are **design targets, not measured benchmarks**.
+
+## Gallery
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/characters.png" alt="The two agents — a blue Hider and a red Seeker"></td>
+    <td width="50%"><img src="docs/assets/scene-fort.png" alt="Hiders cooperatively building a fort out of boxes"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/assets/scene-ramp.png" alt="A Seeker dragging a ramp to breach the fort"></td>
+    <td width="50%"><img src="docs/preview.png" alt="The actual in-browser 3D viewer"></td>
+  </tr>
+</table>
+
+> The first three are stylised key art; the last is the **actual in-browser viewer**.
+> **[▶ Try it live](https://gefaa.github.io/hide-and-seek-2/)** — no install.
 
 ---
 

@@ -45,7 +45,22 @@ import { renderLearning } from "./learning.js";
 // parse time if the CDN is down, and the browser would swallow it silently.
 // Importing it here at top-level is fine for r160; the index.html watchdog +
 // the try/catch in boot() surface any failure with a friendly message.
+//
+// THREE + OrbitControls are REQUIRED (a failure here shows the boot error).
+// Everything else (RoundedBoxGeometry, the RoomEnvironment for PBR reflections,
+// and the whole post-processing stack) is OPTIONAL: each is wrapped in its own
+// try/catch so the viewer always boots and looks good on the base renderer even
+// if an addon 404s. The post-processing classes are stored on the ADDONS object
+// and consumed later in setupPostFX(), which falls back to plain rendering.
 let THREE, OrbitControls, RoundedBoxGeometry = null;
+const ADDONS = {
+  RoomEnvironment: null,
+  EffectComposer: null,
+  RenderPass: null,
+  UnrealBloomPass: null,
+  OutputPass: null,
+  SMAAPass: null,
+};
 try {
   THREE = await import("three");
   ({ OrbitControls } = await import("three/addons/controls/OrbitControls.js"));
@@ -57,6 +72,35 @@ try {
   } catch (_) {
     RoundedBoxGeometry = null;
   }
+
+  // PMREM environment for realistic MeshStandardMaterial reflections. Optional:
+  // if it fails the materials simply render without an env map (still fine).
+  try {
+    ({ RoomEnvironment: ADDONS.RoomEnvironment } =
+      await import("three/addons/environments/RoomEnvironment.js"));
+  } catch (_) { ADDONS.RoomEnvironment = null; }
+
+  // Post-processing stack. EVERY pass is optional and independently guarded;
+  // setupPostFX() only builds the composer if EffectComposer + RenderPass load,
+  // and gracefully skips any individual pass that is missing.
+  try {
+    ({ EffectComposer: ADDONS.EffectComposer } =
+      await import("three/addons/postprocessing/EffectComposer.js"));
+    ({ RenderPass: ADDONS.RenderPass } =
+      await import("three/addons/postprocessing/RenderPass.js"));
+  } catch (_) { ADDONS.EffectComposer = null; ADDONS.RenderPass = null; }
+  try {
+    ({ UnrealBloomPass: ADDONS.UnrealBloomPass } =
+      await import("three/addons/postprocessing/UnrealBloomPass.js"));
+  } catch (_) { ADDONS.UnrealBloomPass = null; }
+  try {
+    ({ OutputPass: ADDONS.OutputPass } =
+      await import("three/addons/postprocessing/OutputPass.js"));
+  } catch (_) { ADDONS.OutputPass = null; }
+  try {
+    ({ SMAAPass: ADDONS.SMAAPass } =
+      await import("three/addons/postprocessing/SMAAPass.js"));
+  } catch (_) { ADDONS.SMAAPass = null; }
 } catch (err) {
   showBootError(
     "Could not load the Three.js engine from the CDN (unpkg.com). " +
@@ -120,17 +164,31 @@ const THEMES = {
     agentEmissive: 0.26,
     decoyEmissive: 1.0,
     // tone-mapping exposure for this theme
-    exposure: 1.0,
+    exposure: 1.04,
     // lights (moody-but-clean: lower ambient/hemi, keep a soft key)
-    ambient: 0.32,
+    ambient: 0.30,
     hemiSky:  0xb9c8e6,
     hemiGround: 0x0c1019,
     hemi: 0.55,
     key:      0xdCE6FF,
-    keyInt:   0.85,
+    keyInt:   1.05,
     fill:     0x223049,
-    fillInt:  0.30,
-    groundRough: 0.92,
+    fillInt:  0.28,
+    // cool rim / back light that catches the top edges of the robots
+    rim:      0x6fa8ff,
+    rimInt:   0.85,
+    groundRough: 0.62,        // lower roughness -> the floor picks up the env
+    groundMetal: 0.18,
+    groundEnv:   0.55,        // floor envMapIntensity
+    // PMREM environment exposure for this theme (dimmer in dark)
+    envIntensity: 0.45,
+    // generic PBR reflection strength for props (boxes/ramps/walls)
+    propEnv:     0.55,
+    agentEnv:    0.75,        // agents are glossier -> stronger reflections
+    // post-processing bloom (subtle: only the emissive glows light up)
+    bloomStrength: 0.42,
+    bloomRadius:   0.45,
+    bloomThreshold: 0.82,
     // ---- DOM (strings -> CSS variables) ----
     dom: {
       "--bg": "#0b0f17",
@@ -165,17 +223,20 @@ const THEMES = {
 
   light: {
     // ---- scene ---- (the ORIGINAL bright studio values)
-    bgTop:     0xdce4ec,
-    bgBottom:  0xeef2f6,
-    fog:       0xe7edf3,
-    ground:    0xf3f5f8,
-    grid:      0xd6dde4,
-    outline:   0xbac4cf,
-    wall:      0xedf0f4,
-    foamLo:    0xeef1f5,   // original foam used a single ~0xeef1f5 tone
-    foamHi:    0xeef1f5,
-    fogDisc:   0xcfd8e2,
-    fogDiscAlpha: 0.10,
+    // Light "studio" theme, deepened a touch from pure white so the characters
+    // and props keep tonal separation + depth (the old flat-white read as a void
+    // once env reflections were added). Still bright, clean, and friendly.
+    bgTop:     0xccd6e2,
+    bgBottom:  0xe6ecf2,
+    fog:       0xdde5ee,
+    ground:    0xe9edf2,
+    grid:      0xcdd5de,
+    outline:   0xb0bbc8,
+    wall:      0xdfe5ec,
+    foamLo:    0xd8dee7,   // subtle low/high variation -> soft city depth
+    foamHi:    0xeaeef3,
+    fogDisc:   0xc6d0dc,
+    fogDiscAlpha: 0.11,
     hider:     0x2f9be8,
     seeker:    0xf2604d,
     box_light: 0xf2b441,
@@ -187,18 +248,35 @@ const THEMES = {
     muted:     0x6c7785,
     edgeHeavy: 0xc98322,
     linkLine:  0xe89a2b,
-    agentEmissive: 0.12,
+    agentEmissive: 0.06,
     decoyEmissive: 0.9,
-    exposure: 1.12,
-    ambient: 0.45,
+    // Keep the bright studio look but hold exposure at neutral so env reflections
+    // + the bright backdrop don't blow the scene out (kept contrast + depth).
+    exposure: 1.0,
+    ambient: 0.5,
     hemiSky:  0xffffff,
     hemiGround: 0xdfe6ee,
-    hemi: 1.1,
+    hemi: 1.0,
     key:      0xfff4e6,
-    keyInt:   1.0,
+    keyInt:   1.35,
     fill:     0xeaf1f8,
-    fillInt:  0.35,
-    groundRough: 0.95,
+    fillInt:  0.32,
+    // warm-neutral rim to separate robots from the bright backdrop
+    rim:      0xa9c2e6,
+    rimInt:   0.4,
+    // Floor: a touch darker + rougher than pure studio white so the characters
+    // read against it and contact shadows stay visible (avoids a milky wash).
+    groundRough: 0.82,
+    groundMetal: 0.04,
+    groundEnv:   0.18,
+    // Modest env intensity in light theme -> subtle sheen, not a blowout.
+    envIntensity: 0.55,
+    propEnv:     0.30,
+    agentEnv:    0.40,
+    // a whisper of bloom in light theme so glows still read without washing out
+    bloomStrength: 0.18,
+    bloomRadius:   0.40,
+    bloomThreshold: 0.92,
     dom: {
       "--bg": "#e7edf3",
       "--panel": "rgba(255, 255, 255, 0.72)",
@@ -297,6 +375,18 @@ function col(hex) {
   return _colorCache.get(hex);
 }
 
+/**
+ * Return a NEW THREE.Color brightened toward white by t (0..1). Used for the
+ * robots' two-tone shading (belly/head/arm highlights). Never mutates `c`.
+ */
+function lighter(c, t) {
+  return c.clone().lerp(new THREE.Color(0xffffff), t);
+}
+/** Return a NEW THREE.Color darkened toward black by t (0..1). */
+function darker(c, t) {
+  return c.clone().lerp(new THREE.Color(0x000000), t);
+}
+
 /** Playback speed options offered in the transport bar. */
 const SPEEDS = [0.5, 1, 2, 4];
 
@@ -337,6 +427,35 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 host.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
+
+// ----------------------------------------------------------------------------
+// PMREM environment -- a soft studio "room" prefiltered into a cubemap so every
+// MeshStandardMaterial picks up realistic reflections + image-based lighting.
+// Optional: built only if the RoomEnvironment addon loaded; on failure the
+// materials simply render without an env map (the base lights still light them).
+// scene.environment is set here; per-theme brightness is handled by each
+// material's envMapIntensity (set in the entity/prop factories + applyTheme).
+// ----------------------------------------------------------------------------
+let _envTex = null;
+function buildEnvironment() {
+  if (!ADDONS.RoomEnvironment) return;
+  try {
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    pmrem.compileEquirectangularShader();
+    const room = new ADDONS.RoomEnvironment(renderer);
+    const rt = pmrem.fromScene(room, 0.04);
+    _envTex = rt.texture;
+    scene.environment = _envTex;
+    // RoomEnvironment builds throwaway geometry/materials; free them + the PMREM
+    // generator now that the prefiltered texture is baked.
+    if (room.dispose) room.dispose();
+    pmrem.dispose();
+  } catch (e) {
+    console.warn("Environment (PMREM) unavailable:", e);
+    _envTex = null;
+  }
+}
+buildEnvironment();
 
 /** "#rrggbb" string for a 0xRRGGBB number. */
 function hexStr(n) {
@@ -402,6 +521,7 @@ scene.add(hemi);
 
 // Key directional light, high and angled, casting SOFT shadows. Kept gentle so
 // the lit/unlit contrast stays low; a soft warm key in light, cool key in dark.
+// A 3-point-ish rig: key (this) + fill (opposite, low) + rim (behind, cool).
 const keyLight = new THREE.DirectionalLight(PAL.key, PAL.keyInt);
 keyLight.position.set(16, 26, 12);
 keyLight.castShadow = true;
@@ -412,9 +532,9 @@ keyLight.shadow.camera.left = -22;
 keyLight.shadow.camera.right = 22;
 keyLight.shadow.camera.top = 22;
 keyLight.shadow.camera.bottom = -22;
-keyLight.shadow.bias = -0.0004;
-keyLight.shadow.normalBias = 0.02;
-keyLight.shadow.radius = 5;
+keyLight.shadow.bias = -0.00035;
+keyLight.shadow.normalBias = 0.028;
+keyLight.shadow.radius = 6;
 scene.add(keyLight);
 
 // A dim, shadowless fill from the opposite side to keep shadowed faces clean
@@ -423,13 +543,21 @@ const fillLight = new THREE.DirectionalLight(PAL.fill, PAL.fillInt);
 fillLight.position.set(-14, 9, -16);
 scene.add(fillLight);
 
+// Cool rim / back light, low and behind the arena, that grazes the rounded top
+// edges of the robots so they pop off the backdrop (the product-render look).
+const rimLight = new THREE.DirectionalLight(PAL.rim, PAL.rimInt);
+rimLight.position.set(-6, 7, -22);
+scene.add(rimLight);
+
 // Ground plane (large, bright). Lies in the XZ plane; world y is "up".
 // IMPORTANT mapping: the trajectory's (x, y) are floor coordinates and z is
 // elevation. We map traj.x -> three.x, traj.y -> three.z, traj.z -> three.y.
+// Subtle low-roughness PBR so the floor softly mirrors the environment + glows.
 const groundMat = new THREE.MeshStandardMaterial({
   color: col(PAL.ground),
   roughness: PAL.groundRough,
-  metalness: 0.0,
+  metalness: PAL.groundMetal,
+  envMapIntensity: PAL.groundEnv,
 });
 const groundGeo = new THREE.PlaneGeometry(600, 600);
 const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -603,6 +731,8 @@ function applyTheme(name, opts = {}) {
   if (scene.fog) scene.fog.color.set(PAL.fog);
   groundMat.color.set(PAL.ground);
   groundMat.roughness = PAL.groundRough;
+  groundMat.metalness = PAL.groundMetal;
+  groundMat.envMapIntensity = PAL.groundEnv;
   groundMat.needsUpdate = true;
 
   // Lights.
@@ -614,6 +744,12 @@ function applyTheme(name, opts = {}) {
   keyLight.intensity = PAL.keyInt;
   fillLight.color.set(PAL.fill);
   fillLight.intensity = PAL.fillInt;
+  rimLight.color.set(PAL.rim);
+  rimLight.intensity = PAL.rimInt;
+
+  // Post-processing bloom is theme-dependent (dark blooms a touch more). Safe if
+  // post-FX failed to build (postFX.bloom is null then).
+  retunePostFX();
 
   // (4) Rebuild colored scene content (grid/outline/foam + entities). The arena
   // bound is taken from the loaded trajectory if present, else the boot default.
@@ -656,19 +792,44 @@ function makeUnitBoxGeo() {
   return new THREE.BoxGeometry(1, 1, 1);
 }
 
+/**
+ * Unit rounded-box geometry for the ROBOT BODY (a tall, soft, friendly chassis).
+ * Reuses the RoundedBoxGeometry addon when present; falls back to a capsule so
+ * the body still reads as a smooth rounded form without the addon.
+ */
+function makeRobotBodyGeo() {
+  if (RoundedBoxGeometry) {
+    try { return new RoundedBoxGeometry(0.72, 0.78, 0.6, 6, 0.26); }
+    catch (_) { /* fall through */ }
+  }
+  return new THREE.CapsuleGeometry(0.32, 0.34, 8, 18);
+}
+
 // Build geometries once; entity meshes share them and only vary scale/material.
+// The robot is assembled from these shared primitives -- ONE group per agent,
+// created once, only transforms/materials updated per frame.
 const GEO = {
-  capsule: new THREE.CapsuleGeometry(0.32, 0.5, 8, 18),
+  capsule: new THREE.CapsuleGeometry(0.32, 0.5, 8, 18),  // (legacy / fallbacks)
   cube: new THREE.BoxGeometry(1, 1, 1),         // walls / doors (hard slabs)
   roundedCube: makeUnitBoxGeo(),                // boxes (soft edges)
   aura: new THREE.SphereGeometry(0.5, 20, 16),  // decoy glow shell
   auraDisc: new THREE.PlaneGeometry(1, 1),      // flat ground glow pool (agents)
   cylinder: new THREE.CylinderGeometry(0.32, 0.32, 0.9, 18),
   nose: new THREE.ConeGeometry(0.085, 0.22, 12),
-  eye: new THREE.SphereGeometry(0.06, 10, 8),    // agent face dots
-  ringMarker: new THREE.RingGeometry(0.5, 0.62, 32),
   decoyCore: new THREE.IcosahedronGeometry(0.22, 1),
   spottedRing: new THREE.RingGeometry(0.62, 0.78, 40),
+
+  // ---- robot character primitives (shared across all agents) ----
+  robotBody: makeRobotBodyGeo(),                       // rounded chassis
+  robotHead: new THREE.SphereGeometry(0.30, 28, 22),   // friendly domed head
+  robotVisor: new THREE.SphereGeometry(0.255, 28, 18), // dark glossy face panel
+  robotEye: new THREE.SphereGeometry(0.072, 18, 14),   // big glossy eyes
+  robotEyeHi: new THREE.SphereGeometry(0.026, 10, 8),  // white eye catch-light
+  robotArm: new THREE.CapsuleGeometry(0.062, 0.12, 6, 12), // stubby arms
+  robotHand: new THREE.SphereGeometry(0.085, 16, 12),  // rounded hand tip
+  glowRing: new THREE.TorusGeometry(0.40, 0.045, 12, 40), // base light ring
+  antenna: new THREE.SphereGeometry(0.05, 12, 10),     // tiny antenna bulb
+  antennaStem: new THREE.CylinderGeometry(0.012, 0.012, 0.16, 8),
 };
 
 /**
@@ -867,21 +1028,134 @@ function makeEntityViz(meta) {
   const size = meta.size || 0.5;
 
   let body, nose, cone, decoyRing, aura;
+  // Robot sub-parts captured for the animation loop (idle bob/squash, blink,
+  // lean, ring pulse). Left undefined for non-agents.
+  let robot = null;
 
   if (isAgent) {
-    // Rounded capsule body, smooth & slightly glossy.
-    const mat = new THREE.MeshStandardMaterial({
+    // ---- designed character: a cute rounded robot ----------------------
+    // Everything is parented to `bob`, a pivot we breathe/squash/lean per frame
+    // (so the floor glow ring + shadow stay put while the body animates). The
+    // whole agent is ONE group; only transforms + a few material scalars change
+    // each frame.
+    const sc = size / 0.4;                       // agent_radius default 0.4
+    const bob = new THREE.Group();
+    bob.position.y = 0.40 * sc;                  // rest height of the body pivot
+    group.add(bob);
+
+    // Matte team-colored body with a low-roughness sheen + env reflections, and
+    // a gentle self-emissive so the robots glow a touch (esp. in dark theme).
+    // (Material.setValues copies the color in by value, so passing the cached
+    // baseColor here never mutates the shared palette color.)
+    const bodyMat = new THREE.MeshStandardMaterial({
       color: baseColor,
-      roughness: 0.4,
-      metalness: 0.05,
+      roughness: 0.46,
+      metalness: 0.12,
+      envMapIntensity: PAL.agentEnv,
       emissive: baseColor,
-      emissiveIntensity: PAL.agentEmissive,
+      // The body is large, so keep its self-glow gentle (the bloom pass would
+      // otherwise wash out the rounded form). The base ring + antenna provide
+      // the strong emissive accents instead.
+      emissiveIntensity: PAL.agentEmissive * 0.55,
     });
-    body = new THREE.Mesh(GEO.capsule, mat);
-    body.scale.setScalar(size / 0.4); // agent_radius default 0.4
-    body.position.y = 0.55 * (size / 0.4);
+    body = new THREE.Mesh(GEO.robotBody, bodyMat);
+    body.scale.setScalar(sc);
     body.castShadow = true;
-    group.add(body);
+    body.receiveShadow = true;
+    bob.add(body);
+
+    // A slightly brighter "belly" plate for a friendly two-tone read.
+    const bellyMat = new THREE.MeshStandardMaterial({
+      color: lighter(baseColor, 0.18),
+      roughness: 0.4, metalness: 0.1, envMapIntensity: PAL.agentEnv,
+    });
+    const belly = new THREE.Mesh(GEO.robotVisor, bellyMat);
+    belly.scale.set(0.62 * sc, 0.52 * sc, 0.42 * sc);
+    belly.position.set(0, -0.04 * sc, 0.30 * sc);
+    bob.add(belly);
+
+    // Domed head, same team color, sitting on the chassis.
+    const headMat = new THREE.MeshStandardMaterial({
+      color: lighter(baseColor, 0.06),
+      roughness: 0.42, metalness: 0.12, envMapIntensity: PAL.agentEnv,
+      emissive: baseColor, emissiveIntensity: PAL.agentEmissive * 0.8,
+    });
+    const head = new THREE.Mesh(GEO.robotHead, headMat);
+    head.scale.setScalar(sc);
+    head.position.y = 0.46 * sc;
+    head.castShadow = true;
+    bob.add(head);
+
+    // Dark glossy face panel (the "visor") the eyes sit on -> friendly look.
+    const visorMat = new THREE.MeshStandardMaterial({
+      color: 0x141a24, roughness: 0.16, metalness: 0.5,
+      envMapIntensity: PAL.agentEnv * 1.4,
+    });
+    const visor = new THREE.Mesh(GEO.robotVisor, visorMat);
+    visor.scale.set(0.86 * sc, 0.74 * sc, 0.62 * sc);
+    visor.position.set(0, 0.45 * sc, 0.16 * sc);
+    bob.add(visor);
+
+    // Two big glossy dark eyes + tiny white catch-lights (the soul of it).
+    const eyeMat = new THREE.MeshStandardMaterial({
+      color: 0x0c0f15, roughness: 0.08, metalness: 0.2,
+      envMapIntensity: PAL.agentEnv * 1.6,
+    });
+    const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const eyes = [];
+    for (const ex of [-0.135, 0.135]) {
+      const eye = new THREE.Mesh(GEO.robotEye, eyeMat);
+      eye.scale.setScalar(sc);
+      eye.position.set(ex * sc, 0.47 * sc, 0.40 * sc);
+      bob.add(eye);
+      // catch-light, offset up-left, parented to the eye so blink scales it too
+      const hi = new THREE.Mesh(GEO.robotEyeHi, hiMat);
+      hi.position.set(-0.022, 0.03, 0.062);
+      eye.add(hi);
+      eyes.push(eye);
+    }
+
+    // Two tiny stubby arms at the sides (capsule + rounded hand tip).
+    const armMat = new THREE.MeshStandardMaterial({
+      color: lighter(baseColor, 0.04), roughness: 0.45, metalness: 0.12,
+      envMapIntensity: PAL.agentEnv,
+    });
+    const arms = [];
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Group();
+      // Sit the arm pivot at the shoulder, pushed clear of the chassis so the
+      // stubby limb + hand read against the body silhouette.
+      arm.position.set(side * 0.46 * sc, 0.06 * sc, 0.04 * sc);
+      arm.rotation.z = side * 0.78;             // splay outward so they're visible
+      const limb = new THREE.Mesh(GEO.robotArm, armMat);
+      limb.scale.setScalar(sc);
+      limb.castShadow = true;
+      arm.add(limb);
+      const hand = new THREE.Mesh(GEO.robotHand, armMat);
+      hand.scale.setScalar(sc);
+      hand.position.y = -0.15 * sc;
+      arm.add(hand);
+      bob.add(arm);
+      arms.push(arm);
+    }
+
+    // A tiny antenna with a glowing team-colored bulb (extra character + a
+    // dab of emissive for the bloom pass to catch).
+    const stemMat = new THREE.MeshStandardMaterial({
+      color: 0x2a3340, roughness: 0.5, metalness: 0.3,
+    });
+    const stem = new THREE.Mesh(GEO.antennaStem, stemMat);
+    stem.scale.setScalar(sc);
+    stem.position.y = 0.74 * sc;
+    bob.add(stem);
+    const bulbMat = new THREE.MeshStandardMaterial({
+      color: baseColor, emissive: baseColor, emissiveIntensity: 1.1,
+      roughness: 0.3, metalness: 0.0,
+    });
+    const bulb = new THREE.Mesh(GEO.antenna, bulbMat);
+    bulb.scale.setScalar(sc);
+    bulb.position.y = 0.83 * sc;
+    bob.add(bulb);
 
     // Soft glow POOL on the floor under the agent (clean reference-style halo) --
     // a flat additive radial disc, NOT a 3D sphere blob.
@@ -895,46 +1169,58 @@ function makeEntityViz(meta) {
     });
     aura = new THREE.Mesh(GEO.auraDisc, auraMat);
     aura.rotation.x = -Math.PI / 2;
-    const auraScale = (size / 0.4) * 2.3;
+    const auraScale = sc * 2.4;
     aura.scale.set(auraScale, auraScale, 1);
-    aura.position.y = 0.03;
+    aura.position.y = 0.02;
     group.add(aura);
 
-    // Small heading "beak": a subtle body-tinted nub showing facing (+Z local).
+    // Emissive base "light ring" hugging the feet -- a soft team-colored torus
+    // that the bloom pass lifts into a believable glow.
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: baseColor, transparent: true, opacity: 0.85,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    const glowRing = new THREE.Mesh(GEO.glowRing, ringMat);
+    glowRing.rotation.x = -Math.PI / 2;
+    glowRing.scale.setScalar(sc);
+    glowRing.position.y = 0.05 * sc;
+    group.add(glowRing);
+
+    // Small heading "beak"/visor nub on the face showing facing (+Z local) so
+    // the look direction always reads even at a distance.
     const noseMat = new THREE.MeshStandardMaterial({
-      color: baseColor,
+      color: lighter(baseColor, 0.2),
       emissive: baseColor,
       emissiveIntensity: PAL.agentEmissive,
-      roughness: 0.5,
+      roughness: 0.4, metalness: 0.1, envMapIntensity: PAL.agentEnv,
     });
     nose = new THREE.Mesh(GEO.nose, noseMat);
     nose.rotation.x = Math.PI / 2;            // point cone along +Z
-    nose.position.set(0, 0.5 * (size / 0.4), 0.34 * (size / 0.4));
-    group.add(nose);
-
-    // Two small dark "eyes" on the front -> a friendly face (reference style).
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x222831, roughness: 0.5 });
-    for (const ex of [-0.12, 0.12]) {
-      const eye = new THREE.Mesh(GEO.eye, eyeMat);
-      const sc = size / 0.4;
-      eye.scale.setScalar(sc);
-      eye.position.set(ex * sc, 0.62 * sc, 0.27 * sc);
-      group.add(eye);
-    }
+    nose.scale.setScalar(sc);
+    nose.position.set(0, 0.20 * sc, 0.44 * sc);
+    bob.add(nose);
 
     // Vision cone (hidden unless toggled). Flat translucent wedge on the floor.
     cone = makeVisionCone(baseColor);
     cone.visible = false;
     group.add(cone);
+
+    robot = { bob, head, eyes, arms, glowRing, ringMat,
+              baseY: bob.position.y, sc,
+              blinkNext: 1.5 + Math.random() * 4, blinkT: -1,
+              phase: Math.random() * Math.PI * 2 };
   } else if (meta.type === "box_light" || meta.type === "box_heavy") {
     const heavy = meta.type === "box_heavy";
     // Warm crate with a stamped lock emblem. The emblem texture is OPAQUE and
     // baked in the box's own colour, so every face shows colour + emblem -- no
     // black faces (the old transparent map multiplied the side faces to black).
+    // Light box = warm matte crate; heavy box = slightly metallic & darker so it
+    // reads as the "needs cooperation" one. Both pick up the environment subtly.
     const mat = new THREE.MeshStandardMaterial({
-      map: lockEmblemTexture(baseColor),
-      roughness: heavy ? 0.6 : 0.65,
-      metalness: 0.0,
+      map: lockEmblemTexture(heavy ? darker(baseColor, 0.12) : baseColor),
+      roughness: heavy ? 0.45 : 0.62,
+      metalness: heavy ? 0.45 : 0.08,
+      envMapIntensity: PAL.propEnv * (heavy ? 1.3 : 1.0),
       emissiveIntensity: 0,   // keep baseEmissive 0 -> no self-glow on boxes
     });
     body = new THREE.Mesh(GEO.roundedCube, mat);
@@ -958,16 +1244,19 @@ function makeEntityViz(meta) {
   } else if (meta.type === "ramp") {
     // A light warm/neutral wedge (inclined plane) so climbing reads in 3D.
     body = new THREE.Mesh(makeWedgeGeometry(size), new THREE.MeshStandardMaterial({
-      color: baseColor, roughness: 0.85, metalness: 0.0,
+      color: baseColor, roughness: 0.72, metalness: 0.04,
+      envMapIntensity: PAL.propEnv,
     }));
     body.castShadow = true;
     body.receiveShadow = true;
     group.add(body);
   } else if (meta.type === "wall") {
-    // THICK, chunky white block -- beefier than a thin slab.
+    // THICK, chunky block -- beefier than a thin slab; soft rounded edges if the
+    // RoundedBox addon is available, else a plain slab.
     const w = (size || 1) * 2;
-    body = new THREE.Mesh(GEO.cube, new THREE.MeshStandardMaterial({
-      color: baseColor, roughness: 0.9, metalness: 0.0,
+    body = new THREE.Mesh(GEO.roundedCube, new THREE.MeshStandardMaterial({
+      color: baseColor, roughness: 0.78, metalness: 0.04,
+      envMapIntensity: PAL.propEnv,
     }));
     body.scale.set(w, 2.2, 0.7);
     body.position.y = 1.1;
@@ -977,8 +1266,9 @@ function makeEntityViz(meta) {
   } else if (meta.type === "door") {
     // A chunky cool-light slab that slides / fades as it deactivates (opens).
     const w = (size || 1) * 2;
-    body = new THREE.Mesh(GEO.cube, new THREE.MeshStandardMaterial({
-      color: baseColor, roughness: 0.7, metalness: 0.0,
+    body = new THREE.Mesh(GEO.roundedCube, new THREE.MeshStandardMaterial({
+      color: baseColor, roughness: 0.4, metalness: 0.25,
+      envMapIntensity: PAL.propEnv * 1.2,
       transparent: true, opacity: 0.95,
     }));
     body.scale.set(w, 2.0, 0.5);
@@ -989,10 +1279,10 @@ function makeEntityViz(meta) {
   } else if (meta.type === "decoy") {
     // A soft glowing orb; an expanding ring pulse is added on top. Additive
     // glow halo keeps it readable against the bright background.
-    body = new THREE.Mesh(new THREE.SphereGeometry(0.26, 20, 16),
+    body = new THREE.Mesh(new THREE.SphereGeometry(0.26, 24, 18),
       new THREE.MeshStandardMaterial({
         color: baseColor, emissive: baseColor, emissiveIntensity: PAL.decoyEmissive,
-        roughness: 0.35, metalness: 0.1,
+        roughness: 0.3, metalness: 0.1, envMapIntensity: PAL.agentEnv,
       }));
     body.position.y = 0.4;
     group.add(body);
@@ -1046,7 +1336,7 @@ function makeEntityViz(meta) {
   const bodyMat = body && Array.isArray(body.material) ? body.material[0] : body && body.material;
 
   return {
-    group, body, nose, cone, spotRing, decoyRing, aura,
+    group, body, nose, cone, spotRing, decoyRing, aura, robot,
     type: meta.type, team: meta.team, id: meta.id,
     baseEmissive: bodyMat && bodyMat.emissiveIntensity !== undefined
       ? bodyMat.emissiveIntensity : 0,
@@ -1171,6 +1461,94 @@ function clearGroup(g) {
   g.clear();
 }
 
+// Scratch vector for robot velocity (world XZ) -- avoids per-frame allocation.
+const _rv = new THREE.Vector3();
+
+/**
+ * Give one robot agent its characterful idle + locomotion motion. Mutates only
+ * transforms on the agent's pre-built `bob` pivot + sub-parts and a couple of
+ * additive-material opacities; creates nothing (no per-frame leaks).
+ *
+ * @param {EntityViz} viz   - the agent's visual record (has viz.robot parts)
+ * @param {object} en       - this frame's sampled entity state
+ * @param {number} timeSec  - wall-clock seconds for anim phases
+ * @param {boolean} spotted - whether the agent is currently seen by the foe
+ * @param {number} popScale - shared pop-in scale (so anim respects the intro)
+ */
+function animateRobot(viz, en, timeSec, spotted, popScale) {
+  const r = viz.robot;
+  const sc = r.sc;
+
+  // Reduced motion: settle to a clean neutral pose and bail.
+  if (reducedMotion) {
+    r.bob.position.y = r.baseY;
+    r.bob.scale.set(1, 1, 1);
+    r.bob.rotation.set(0, 0, 0);
+    r.glowRing.material.opacity = 0.85;
+    return;
+  }
+
+  // ---- estimate planar speed from frame-to-frame motion (world XZ) ----
+  // viz.group.position is already set to this frame's world pos by applyFrame.
+  let speed = 0;
+  if (r._lastX !== undefined) {
+    _rv.set(viz.group.position.x - r._lastX, 0, viz.group.position.z - r._lastZ);
+    speed = _rv.length();
+  }
+  r._lastX = viz.group.position.x;
+  r._lastZ = viz.group.position.z;
+  // Smooth the speed estimate so the lean/limb swing don't jitter.
+  r.spd = (r.spd || 0) + (Math.min(speed, 0.4) - (r.spd || 0)) * 0.18;
+  const moving = r.spd / 0.4;                 // 0..1 normalized briskness
+
+  // ---- idle breathing bob + squash/stretch ----
+  const ph = timeSec * 2.2 + r.phase;
+  const bob = Math.sin(ph) * 0.022 * sc;
+  // Squash counter-phases the bob: lift -> stretch up, settle -> squash down.
+  const squash = Math.sin(ph) * 0.05;
+  r.bob.position.y = r.baseY + bob + 0.05 * sc * moving;   // hop a touch when moving
+  // popScale also feeds the entity-wide scale; here we only do the relative
+  // squash/stretch (group scale already applied by applyFrame).
+  const sx = 1 - squash * 0.7;
+  const sy = 1 + squash;
+  r.bob.scale.set(sx, sy, sx);
+
+  // ---- subtle lean into the movement direction ----
+  // The whole agent group is yaw-rotated to face heading; a forward lean is a
+  // rotation about the LOCAL x axis (nose dips when moving). Add a faint idle sway.
+  const leanTarget = moving * 0.28;
+  r.lean = (r.lean || 0) + (leanTarget - (r.lean || 0)) * 0.12;
+  r.bob.rotation.x = r.lean + Math.sin(ph * 0.5) * 0.015;
+  r.bob.rotation.z = Math.sin(ph * 0.7 + 1.3) * 0.02 * (1 - moving);
+
+  // ---- stubby arm swing (gentle idle, livelier when moving) ----
+  if (r.arms && r.arms.length === 2) {
+    const swing = Math.sin(timeSec * (3 + 6 * moving) + r.phase);
+    r.arms[0].rotation.x = swing * (0.12 + 0.5 * moving);
+    r.arms[1].rotation.x = -swing * (0.12 + 0.5 * moving);
+  }
+
+  // ---- occasional eye blink (quick vertical squash of both eyes) ----
+  if (r.blinkT < 0) {
+    r.blinkNext -= 1 / 60;                    // ~per-frame countdown (approx)
+    if (r.blinkNext <= 0) { r.blinkT = 0; }
+  } else {
+    r.blinkT += 0.12;
+    // a fast close-open over ~0.18s
+    const k = r.blinkT;
+    const open = k < 1 ? 1 - k : (k < 2 ? k - 1 : 1);
+    const oy = Math.max(0.08, open);
+    for (const eye of r.eyes) eye.scale.y = sc * oy;
+    if (k >= 2) { r.blinkT = -1; r.blinkNext = 2.5 + Math.random() * 5; }
+  }
+
+  // ---- base light ring softly pulses (brighter + a hair wider when spotted) ----
+  const pulse = 0.55 + 0.18 * Math.sin(timeSec * 2.4 + r.phase);
+  r.glowRing.material.opacity = (spotted ? 0.95 : pulse) * Math.min(1, popScale + 0.15);
+  const rs = (spotted ? 1.12 : 1.0) + 0.03 * Math.sin(timeSec * 3 + r.phase);
+  r.glowRing.scale.set(sc * rs, sc * rs, sc * rs);
+}
+
 /**
  * Apply a sampled frame to all entity meshes, link lines, fog and overlays.
  * @param {object} f - the result of Trajectory.sample(pos)
@@ -1244,6 +1622,12 @@ function applyFrame(f, timeSec) {
       const base = spotted ? 0.32 : 0.18;
       viz.aura.material.opacity = base + 0.05 * Math.sin(timeSec * 2 + en.id);
     }
+
+    // ---- characterful robot motion ------------------------------------
+    // Idle breathing bob + squash/stretch, a subtle lean into the movement
+    // direction, occasional eye blink, and a softly pulsing base light ring.
+    // All driven off the shared `bob` pivot so the floor glow/ring stay put.
+    if (viz.robot) animateRobot(viz, en, timeSec, spotted, popScale);
 
     // Decoy pulse: expanding ring while dc=1, intensity scaled by noise.
     if (viz.decoyRing) {
@@ -2263,6 +2647,104 @@ function updateCameraIntro() {
 }
 
 // ============================================================================
+// [L-pre] Post-processing pipeline (EffectComposer) -- with a SAFE FALLBACK
+// ============================================================================
+//
+// A tasteful composer: RenderPass -> UnrealBloomPass (subtle; only the emissive
+// glows light up) -> SMAA antialiasing -> OutputPass (tone-map + sRGB).
+//
+// CRITICAL SAFETY: the whole thing, and EACH pass, is wrapped in try/catch. If
+// EffectComposer/RenderPass are unavailable, or any pass throws while being
+// constructed, we fall back to plain renderer.render(scene, camera). The BASE
+// scene (PBR models, env reflections, lights, shadows) is designed to look
+// great WITHOUT post -- so the fallback is still professional.
+const postFX = {
+  composer: null,
+  bloom: null,
+  smaa: null,
+  output: null,
+  render: null,           // bound render fn (composer.render) when active
+};
+
+function setupPostFX() {
+  if (!ADDONS.EffectComposer || !ADDONS.RenderPass) return;  // -> fallback
+  try {
+    const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+    const composer = new ADDONS.EffectComposer(renderer);
+    composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    composer.setSize(window.innerWidth, window.innerHeight);
+
+    composer.addPass(new ADDONS.RenderPass(scene, camera));
+
+    // Subtle bloom: low strength, tight radius, high threshold so ONLY the
+    // bright emissive bits (glow rings, antenna bulbs, decoys, spotted flashes)
+    // bloom -- not the whole scene. Guarded independently.
+    if (ADDONS.UnrealBloomPass) {
+      try {
+        const bloom = new ADDONS.UnrealBloomPass(
+          new THREE.Vector2(window.innerWidth, window.innerHeight),
+          PAL.bloomStrength, PAL.bloomRadius, PAL.bloomThreshold
+        );
+        composer.addPass(bloom);
+        postFX.bloom = bloom;
+      } catch (e) { console.warn("Bloom pass skipped:", e); }
+    }
+
+    // Antialiasing via SMAA (the composer's render targets are not MSAA).
+    if (ADDONS.SMAAPass) {
+      try {
+        const smaa = new ADDONS.SMAAPass(
+          window.innerWidth * composer.getPixelRatio?.() || window.innerWidth,
+          window.innerHeight
+        );
+        composer.addPass(smaa);
+        postFX.smaa = smaa;
+      } catch (e) { console.warn("SMAA pass skipped:", e); }
+    }
+
+    // OutputPass does ACES tone-mapping + sRGB conversion at the end of the
+    // chain (so tone mapping stays ACESFilmic through post). Guarded.
+    if (ADDONS.OutputPass) {
+      try {
+        const output = new ADDONS.OutputPass();
+        composer.addPass(output);
+        postFX.output = output;
+      } catch (e) { console.warn("Output pass skipped:", e); }
+    }
+
+    postFX.composer = composer;
+    postFX.render = () => composer.render();
+    void size;
+  } catch (e) {
+    console.warn("Post-processing unavailable; using plain renderer:", e);
+    postFX.composer = null;
+    postFX.render = null;
+  }
+}
+
+/** Re-tune theme-dependent post-FX params (bloom). Safe if post-FX is off. */
+function retunePostFX() {
+  if (postFX.bloom) {
+    postFX.bloom.strength = PAL.bloomStrength;
+    postFX.bloom.radius = PAL.bloomRadius;
+    postFX.bloom.threshold = PAL.bloomThreshold;
+  }
+}
+
+/** Resize the composer + every pass + pixelRatio. Safe if post-FX is off. */
+function resizePostFX(w, h) {
+  if (!postFX.composer) return;
+  try {
+    postFX.composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    postFX.composer.setSize(w, h);
+    if (postFX.bloom && postFX.bloom.setSize) postFX.bloom.setSize(w, h);
+    if (postFX.smaa && postFX.smaa.setSize) postFX.smaa.setSize(w, h);
+  } catch (e) { /* leave the composer as-is; render() still guards */ }
+}
+
+setupPostFX();
+
+// ============================================================================
 // [L] Main animation loop
 // ============================================================================
 
@@ -2320,7 +2802,21 @@ function animate() {
 
   // Camera intro takes precedence over OrbitControls until it completes.
   if (!updateCameraIntro()) controls.update();
-  renderer.render(scene, camera);
+
+  // Render through the EffectComposer when available, else plain renderer. If
+  // composer.render() ever throws at runtime, drop to plain rendering for good
+  // so a single bad frame can't blank the scene.
+  if (postFX.render) {
+    try {
+      postFX.render();
+    } catch (e) {
+      console.warn("Composer render failed; reverting to plain renderer:", e);
+      postFX.render = null;
+      renderer.render(scene, camera);
+    }
+  } else {
+    renderer.render(scene, camera);
+  }
 }
 
 // ============================================================================
@@ -2331,8 +2827,10 @@ function onResize() {
   const w = window.innerWidth, h = window.innerHeight;
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(w, h);
+  // Keep the post-processing composer + every pass in lock-step with the canvas.
+  resizePostFX(w, h);
 }
 window.addEventListener("resize", onResize);
 
