@@ -162,7 +162,7 @@ const THEMES = {
     linkLine:  0xef9a2b,   // held-object link line
     // agents glow a touch more in dark
     agentEmissive: 0.26,
-    decoyEmissive: 1.0,
+    decoyEmissive: 0.6,
     // tone-mapping exposure for this theme
     exposure: 1.04,
     // lights (moody-but-clean: lower ambient/hemi, keep a soft key)
@@ -186,9 +186,9 @@ const THEMES = {
     propEnv:     0.55,
     agentEnv:    0.75,        // agents are glossier -> stronger reflections
     // post-processing bloom (subtle: only the emissive glows light up)
-    bloomStrength: 0.42,
-    bloomRadius:   0.45,
-    bloomThreshold: 0.82,
+    bloomStrength: 0.28,
+    bloomRadius:   0.4,
+    bloomThreshold: 0.86,
     // ---- DOM (strings -> CSS variables) ----
     dom: {
       "--bg": "#0b0f17",
@@ -1287,12 +1287,12 @@ function makeEntityViz(meta) {
     body.position.y = 0.4;
     group.add(body);
 
-    // Additive glow shell around the orb.
+    // Additive glow shell around the orb (subtle, so it doesn't bloom into a blob).
     const glow = new THREE.Mesh(GEO.aura, new THREE.MeshBasicMaterial({
-      color: baseColor, transparent: true, opacity: 0.28,
+      color: baseColor, transparent: true, opacity: 0.15,
       blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.BackSide,
     }));
-    glow.scale.setScalar(1.1);
+    glow.scale.setScalar(1.0);
     glow.position.y = 0.4;
     group.add(glow);
 
@@ -1488,44 +1488,20 @@ function animateRobot(viz, en, timeSec, spotted, popScale) {
     return;
   }
 
-  // ---- estimate planar speed from frame-to-frame motion (world XZ) ----
-  // viz.group.position is already set to this frame's world pos by applyFrame.
-  let speed = 0;
-  if (r._lastX !== undefined) {
-    _rv.set(viz.group.position.x - r._lastX, 0, viz.group.position.z - r._lastZ);
-    speed = _rv.length();
-  }
-  r._lastX = viz.group.position.x;
-  r._lastZ = viz.group.position.z;
-  // Smooth the speed estimate so the lean/limb swing don't jitter.
-  r.spd = (r.spd || 0) + (Math.min(speed, 0.4) - (r.spd || 0)) * 0.18;
-  const moving = r.spd / 0.4;                 // 0..1 normalized briskness
-
-  // ---- idle breathing bob + squash/stretch ----
-  const ph = timeSec * 2.2 + r.phase;
-  const bob = Math.sin(ph) * 0.022 * sc;
-  // Squash counter-phases the bob: lift -> stretch up, settle -> squash down.
-  const squash = Math.sin(ph) * 0.05;
-  r.bob.position.y = r.baseY + bob + 0.05 * sc * moving;   // hop a touch when moving
-  // popScale also feeds the entity-wide scale; here we only do the relative
-  // squash/stretch (group scale already applied by applyFrame).
-  const sx = 1 - squash * 0.7;
-  const sy = 1 + squash;
-  r.bob.scale.set(sx, sy, sx);
-
-  // ---- subtle lean into the movement direction ----
-  // The whole agent group is yaw-rotated to face heading; a forward lean is a
-  // rotation about the LOCAL x axis (nose dips when moving). Add a faint idle sway.
-  const leanTarget = moving * 0.28;
-  r.lean = (r.lean || 0) + (leanTarget - (r.lean || 0)) * 0.12;
-  r.bob.rotation.x = r.lean + Math.sin(ph * 0.5) * 0.015;
-  r.bob.rotation.z = Math.sin(ph * 0.7 + 1.3) * 0.02 * (1 - moving);
-
-  // ---- stubby arm swing (gentle idle, livelier when moving) ----
+  // CALM idle motion only. The agent already glides smoothly to its world pos +
+  // heading (set by applyFrame); we add nothing speed-derived. The previous
+  // version estimated speed from per-frame deltas and drove a 16-degree lean +
+  // squash/stretch + hop + arm swing from it -- that estimate jitters with the
+  // frame rate, so the robots visibly wobbled/vibrated. Removed. Now: a gentle
+  // vertical bob and a tiny time-based arm sway. No scale squash, no lean.
+  const ph = timeSec * 1.8 + r.phase;
+  r.bob.position.y = r.baseY + Math.sin(ph) * 0.016 * sc;
+  r.bob.scale.set(1, 1, 1);
+  r.bob.rotation.set(0, 0, 0);
   if (r.arms && r.arms.length === 2) {
-    const swing = Math.sin(timeSec * (3 + 6 * moving) + r.phase);
-    r.arms[0].rotation.x = swing * (0.12 + 0.5 * moving);
-    r.arms[1].rotation.x = -swing * (0.12 + 0.5 * moving);
+    const s = Math.sin(ph) * 0.13;
+    r.arms[0].rotation.x = s;
+    r.arms[1].rotation.x = -s;
   }
 
   // ---- occasional eye blink (quick vertical squash of both eyes) ----
@@ -1636,7 +1612,7 @@ function applyFrame(f, timeSec) {
         const phase = (timeSec % period) / period;
         const ringScale = 0.6 + phase * 4.5 * (0.5 + 0.5 * (en.no || 1));
         viz.decoyRing.scale.setScalar(ringScale);
-        viz.decoyRing.material.opacity = (1 - phase) * 0.6;
+        viz.decoyRing.material.opacity = (1 - phase) * 0.4;
         // Core glow throbs too.
         if (viz.body && viz.body.material) {
           viz.body.material.emissiveIntensity = 0.8 + 0.6 * Math.sin(timeSec * 8);
